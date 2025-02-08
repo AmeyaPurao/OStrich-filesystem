@@ -12,14 +12,14 @@ using namespace std;
 
 class FakeDiskDriver {
 public:
-    // A block is fixed at 4096 bytes (when we implement disk driver, it will translate to 8 sectors).
-    static constexpr size_t BLOCK_SIZE = 4096;
-    using Block = std::vector<uint8_t>;
+    // A sector is fixed at 512 bytes.
+    static constexpr size_t SECTOR_SIZE = 512;
+    using Sector = std::vector<uint8_t>;
 
     // Partition structure for simulation.
     struct Partition {
-        size_t startBlock;  // Starting block index.
-        size_t blockCount;  // Number of blocks in the partition.
+        size_t startSector;  // Starting sector index.
+        size_t sectorCount;  // Number of sectors in the partition.
         std::string type;   // Label (for example, "ext4", "FAT32", etc.)
     };
 
@@ -27,10 +27,10 @@ public:
      * Constructor.
      *
      * @param diskFilename     The filename to use for the simulated disk.
-     * @param numBlocks        Total number of blocks (disk size = numBlocks * BLOCK_SIZE).
+     * @param numSectors        Total number of sectors (disk size = numSectors * SECTOR_SIZE).
      * @param simulatedLatency The artificial latency to simulate disk I/O delays (default: 10ms).
      */
-    FakeDiskDriver(const std::string &diskFilename, size_t numBlocks,
+    FakeDiskDriver(const std::string &diskFilename, size_t numSectors,
                    std::chrono::milliseconds simulatedLatency = std::chrono::milliseconds(10));
 
     // Destructor.
@@ -41,22 +41,22 @@ public:
     FakeDiskDriver& operator=(const FakeDiskDriver&) = delete;
 
     /**
-     * Reads the block at the given index.
+     * Reads the sector at the given index.
      *
-     * @param blockIndex  The block number to read.
-     * @param block       The vector that will receive the data (will be resized to BLOCK_SIZE).
+     * @param sectorIndex  The sector number to read.
+     * @param sector       The vector that will receive the data (will be resized to SECTOR_SIZE).
      * @return true if successful, false otherwise.
      */
-    bool readBlock(size_t blockIndex, Block &block);
+    bool readSector(size_t sectorIndex, Sector &sector);
 
     /**
-     * Writes the given block data at the given block index.
+     * Writes the given sector data at the given sector index.
      *
-     * @param blockIndex  The block number to write.
-     * @param block       A vector containing exactly BLOCK_SIZE bytes.
+     * @param sectorIndex  The sector number to write.
+     * @param sector       A vector containing exactly SECTOR_SIZE bytes.
      * @return true if successful, false otherwise.
      */
-    bool writeBlock(size_t blockIndex, const Block &block);
+    bool writeSector(size_t sectorIndex, const Sector &sector);
 
     /**
      * Flushes any pending I/O operations.
@@ -66,14 +66,14 @@ public:
     bool flush();
 
     /**
-     * Creates a partition if the specified block range is valid and does not overlap any existing partition.
+     * Creates a partition if the specified sector range is valid and does not overlap any existing partition.
      *
-     * @param startBlock  The starting block index for the partition.
-     * @param blockCount  The number of blocks for the partition.
+     * @param startSector  The starting sector index for the partition.
+     * @param sectorCount  The number of sectors for the partition.
      * @param type        A label for the partition.
      * @return true if the partition is created successfully.
      */
-    bool createPartition(size_t startBlock, size_t blockCount, const std::string &type);
+    bool createPartition(size_t startSector, size_t sectorCount, const std::string &type);
 
     /**
      * Deletes a partition given its index.
@@ -92,7 +92,7 @@ public:
 
 private:
     string diskFilename;
-    size_t totalBlocks;
+    size_t totalSectors;
     fstream diskFile;
 
     // In–memory partition table.

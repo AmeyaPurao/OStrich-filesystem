@@ -5,9 +5,9 @@
 using namespace std;
 
 // Constructor: Opens (or creates) the file and ensures its size.
-FakeDiskDriver::FakeDiskDriver(const string &filename, size_t numBlocks,
+FakeDiskDriver::FakeDiskDriver(const string &filename, size_t numSectors,
                                chrono::milliseconds simulatedLatency)
-        : diskFilename(filename), totalBlocks(numBlocks), ioLatency(simulatedLatency)
+        : diskFilename(filename), totalSectors(numSectors), ioLatency(simulatedLatency)
 {
     if (!openDisk()) {
         cerr << "Error: Could not open disk file " << diskFilename << "\n";
@@ -53,13 +53,13 @@ void FakeDiskDriver::closeDisk() {
     }
 }
 
-// ensureDiskSize: Makes sure the file is large enough to hold all blocks.
+// ensureDiskSize: Makes sure the file is large enough to hold all sectors.
 bool FakeDiskDriver::ensureDiskSize() {
     lock_guard<mutex> lock(diskMutex);
     diskFile.clear();
     diskFile.seekg(0, ios::end);
     streampos currentSize = diskFile.tellg();
-    size_t requiredSize = totalBlocks * BLOCK_SIZE;
+    size_t requiredSize = totalSectors * SECTOR_SIZE;
     if (static_cast<size_t>(currentSize) < requiredSize) {
         // Expand the file to the required size.
         diskFile.clear();
@@ -77,10 +77,10 @@ bool FakeDiskDriver::ensureDiskSize() {
     return true;
 }
 
-// readBlock: Reads a block from the simulated disk.
-bool FakeDiskDriver::readBlock(size_t blockIndex, Block &block) {
-    if (blockIndex >= totalBlocks) {
-        cerr << "Error: readBlock: block index " << blockIndex << " out of range\n";
+// readSector: Reads a sector from the simulated disk.
+bool FakeDiskDriver::readSector(size_t sectorIndex, Sector &sector) {
+    if (sectorIndex >= totalSectors) {
+        cerr << "Error: readSector: sector index " << sectorIndex << " out of range\n";
         return false;
     }
     lock_guard<mutex> lock(diskMutex);
@@ -88,24 +88,24 @@ bool FakeDiskDriver::readBlock(size_t blockIndex, Block &block) {
     // Simulate I/O latency (e.g., SD card delay on the Pi 3).
     this_thread::sleep_for(ioLatency);
 
-    block.resize(BLOCK_SIZE);
+    sector.resize(SECTOR_SIZE);
     diskFile.clear();
-    diskFile.seekg(blockIndex * BLOCK_SIZE, ios::beg);
-    if (!diskFile.read(reinterpret_cast<char*>(block.data()), BLOCK_SIZE)) {
-        cerr << "Error: readBlock: failed to read block " << blockIndex << "\n";
+    diskFile.seekg(sectorIndex * SECTOR_SIZE, ios::beg);
+    if (!diskFile.read(reinterpret_cast<char*>(sector.data()), SECTOR_SIZE)) {
+        cerr << "Error: readSector: failed to read sector " << sectorIndex << "\n";
         return false;
     }
     return true;
 }
 
-// writeBlock: Writes a block to the simulated disk.
-bool FakeDiskDriver::writeBlock(size_t blockIndex, const Block &block) {
-    if (blockIndex >= totalBlocks) {
-        cerr << "Error: writeBlock: block index " << blockIndex << " out of range\n";
+// writeSector: Writes a sector to the simulated disk.
+bool FakeDiskDriver::writeSector(size_t sectorIndex, const Sector &sector) {
+    if (sectorIndex >= totalSectors) {
+        cerr << "Error: writeSector: sector index " << sectorIndex << " out of range\n";
         return false;
     }
-    if (block.size() != BLOCK_SIZE) {
-        cerr << "Error: writeBlock: block size mismatch (expected " << BLOCK_SIZE << " bytes)\n";
+    if (sector.size() != SECTOR_SIZE) {
+        cerr << "Error: writeSector: sector size mismatch (expected " << SECTOR_SIZE << " bytes)\n";
         return false;
     }
 
@@ -115,12 +115,12 @@ bool FakeDiskDriver::writeBlock(size_t blockIndex, const Block &block) {
     this_thread::sleep_for(ioLatency);
 
     diskFile.clear();
-    diskFile.seekp(blockIndex * BLOCK_SIZE, ios::beg);
-    if (!diskFile.write(reinterpret_cast<const char*>(block.data()), BLOCK_SIZE)) {
-        cerr << "Error: writeBlock: failed to write block " << blockIndex << "\n";
+    diskFile.seekp(sectorIndex * SECTOR_SIZE, ios::beg);
+    if (!diskFile.write(reinterpret_cast<const char*>(sector.data()), SECTOR_SIZE)) {
+        cerr << "Error: writeSector: failed to write sector " << sectorIndex << "\n";
         return false;
     }
-    // For performance, we don’t flush after every block (unless required).
+    // For performance, we don’t flush after every sector (unless required).
     return true;
 }
 
@@ -136,23 +136,23 @@ bool FakeDiskDriver::flush() {
     return false;
 }
 
-// createPartition: Creates a partition if the block range is valid and non–overlapping.
-bool FakeDiskDriver::createPartition(size_t startBlock, size_t blockCount, const string &type) {
-    if (startBlock + blockCount > totalBlocks) {
+// createPartition: Creates a partition if the sector range is valid and non–overlapping.
+bool FakeDiskDriver::createPartition(size_t startSector, size_t sectorCount, const string &type) {
+    if (startSector + sectorCount > totalSectors) {
         cerr << "Error: createPartition: partition exceeds disk size\n";
         return false;
     }
     lock_guard<mutex> lock(partitionMutex);
     // Check for overlaps.
     for (const auto &p : partitions) {
-        size_t pEnd = p.startBlock + p.blockCount;
-        size_t newEnd = startBlock + blockCount;
-        if (!(newEnd <= p.startBlock || startBlock >= pEnd)) {
+        size_t pEnd = p.startSector + p.sectorCount;
+        size_t newEnd = startSector + sectorCount;
+        if (!(newEnd <= p.startSector || startSector >= pEnd)) {
             cerr << "Error: createPartition: partition overlaps an existing partition\n";
             return false;
         }
     }
-    partitions.push_back({startBlock, blockCount, type});
+    partitions.push_back({startSector, sectorCount, type});
     return true;
 }
 

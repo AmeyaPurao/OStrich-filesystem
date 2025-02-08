@@ -5,4 +5,6 @@ set(CMAKE_CXX_STANDARD 17)
 
 add_executable(MockFilesys main.cpp
         FakeDiskDriver.h
-        FakeDiskDriver.cpp)
+        FakeDiskDriver.cpp
+        BlockManager.h
+        BlockManager.cpp)

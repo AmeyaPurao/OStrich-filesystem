@@ -2,46 +2,66 @@
 #include <string>
 #include <thread>
 #include "FakeDiskDriver.h"
-
+#include "BlockManager.h"
 
 using namespace std;
+
 int main() {
-    cout << "Mock File System test - creating fake disk with 512 MB" << endl;
-    FakeDiskDriver disk("OStrich_Hard_Drive", 512);
-    cout << "Mock File System test - writing \"Hello, World!\" to block 100" << endl;
-    FakeDiskDriver::Block block(4096);
+    cout << "Mock File System test - creating fake disk with 512 KB" << endl;
+    FakeDiskDriver disk("OStrich_Hard_Drive", 1024);
+
+    cout << "Mock File System test - creating partition from sector 200 to 1024" << endl;
+    if (!disk.createPartition(200, 824, "ext4")) {
+        cerr << "Error: Failed to create partition\n";
+        return 1;
+    }
+
+    vector<FakeDiskDriver::Partition> partitions = disk.listPartitions();
+    if (partitions.empty()) {
+        cerr << "Error: No partitions found\n";
+        return 1;
+    }
+
+    BlockManager blockManager(disk, partitions[0]);
+
+    cout << "Mock File System test - writing \"Hello, World!\" to block 0" << endl;
+    BlockManager::Block block(BlockManager::BLOCK_SIZE);
     string hello = "Hello, World!";
     copy(hello.begin(), hello.end(), block.begin());
-    disk.writeBlock(100, block);
-    cout << "Mock File System test - reading block 100" << endl;
-    FakeDiskDriver::Block blockContents;
-    disk.readBlock(100, blockContents);
-    cout << "Mock File System test - block 100 contains: " << string(blockContents.begin(), blockContents.end()) << endl;
+    if (!blockManager.writeBlock(0, block)) {
+        cerr << "Error: Failed to write block\n";
+        return 1;
+    }
 
-    cout << "Mock File System test - creating partition from block 200 to 300" << endl;
-    disk.createPartition(200, 100, "ext4");
+    cout << "Mock File System test - reading block 0" << endl;
+    BlockManager::Block blockContents;
+    if (!blockManager.readBlock(0, blockContents)) {
+        cerr << "Error: Failed to read block\n";
+        return 1;
+    }
+    cout << "Mock File System test - block 0 contains: " << string(blockContents.begin(), blockContents.end()) << endl;
 
     cout << "Mock File System test - testing concurrent access" << endl;
 
-    thread writer1([&disk]() {
-        FakeDiskDriver::Block block(4096, 'A');
-        disk.writeBlock(100, block);
+    thread writer1([&blockManager]() {
+        BlockManager::Block block(BlockManager::BLOCK_SIZE, 'A');
+        blockManager.writeBlock(0, block);
     });
 
-    thread writer2([&disk]() {
-        FakeDiskDriver::Block block(4096, 'B');
-        disk.writeBlock(100, block);
+    thread writer2([&blockManager]() {
+        BlockManager::Block block(BlockManager::BLOCK_SIZE, 'B');
+        blockManager.writeBlock(0, block);
     });
 
-    thread reader1([&disk]() {
-        FakeDiskDriver::Block block;
-        disk.readBlock(100, block);
+    thread reader1([&blockManager]() {
+        BlockManager::Block block;
+        blockManager.readBlock(0, block);
         cout << "Reader 1 read: " << string(block.begin(), block.end()) << endl;
     });
 
-    thread reader2([&disk]() {
-        FakeDiskDriver::Block block;
-        disk.readBlock(100, block);
+    thread reader2([&blockManager]() {
+        BlockManager::Block block;
+        blockManager.readBlock(0, block);
         cout << "Reader 2 read: " << string(block.begin(), block.end()) << endl;
     });
 
@@ -49,7 +69,6 @@ int main() {
     writer2.join();
     reader1.join();
     reader2.join();
-
 
     return 0;
 }
