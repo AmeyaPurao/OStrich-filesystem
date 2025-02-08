@@ -12,8 +12,8 @@ using namespace std;
 
 class FakeDiskDriver {
 public:
-    // A block is fixed at 512 bytes.
-    static constexpr size_t BLOCK_SIZE = 512;
+    // A block is fixed at 4096 bytes (when we implement disk driver, it will translate to 8 sectors).
+    static constexpr size_t BLOCK_SIZE = 4096;
     using Block = std::vector<uint8_t>;
 
     // Partition structure for simulation.
