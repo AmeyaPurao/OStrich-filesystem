@@ -5,9 +5,8 @@
 static const size_t BLOCK_SIZE = Superblock::BLOCK_SIZE;
 
 LogManager::LogManager(BlockManager *blockManager, size_t segmentSize)
-    : blockManager(blockManager), segmentSize(segmentSize),
-      currentSegmentSeq(0), globalSequence(1)
-{
+        : blockManager(blockManager), segmentSize(segmentSize),
+          currentSegmentSeq(0), globalSequence(1) {
     // Ensure that segmentSize is a multiple of BLOCK_SIZE.
     if (segmentSize % BLOCK_SIZE != 0) {
         std::cerr << "Error: segmentSize must be a multiple of BLOCK_SIZE ("
@@ -32,13 +31,16 @@ LogManager::LogManager(BlockManager *blockManager, size_t segmentSize)
         std::cout << "No valid superblock found. Creating new filesystem...\n";
         // Create a new superblock and write it.
         Superblock newSb;
+        // (At this point, newSb.latestCheckpointSegment and latestCheckpointOffset are 0.)
         sbData = newSb.serialize();
         if (!blockManager->writeBlock(0, sbData)) {
             std::cerr << "Failed to write new superblock to block 0.\n";
             exit(1);
         }
+        // Initialize starting state for the new filesystem.
         currentSegmentSeq = 1;
         currentSegmentBlockStart = 1; // Log segments start at block 1.
+        currentOffset = 0;
         // Create the current segment.
         currentSegment = new Segment(currentSegmentSeq, segmentSize);
         // Write the segment header to disk.
@@ -47,7 +49,13 @@ LogManager::LogManager(BlockManager *blockManager, size_t segmentSize)
             std::cerr << "Failed to write segment header at block "
                       << currentSegmentBlockStart << "\n";
         }
-        currentOffset = 0;
+        // Immediately append an initial checkpoint record
+        std::vector<uint8_t> cpPayload; // Empty payload.
+        LogRecord cpRecord(LogRecordType::CHECKPOINT, cpPayload);
+        if (!appendCheckpoint(cpRecord)) {
+            std::cerr << "Failed to append initial checkpoint in new filesystem.\n";
+            exit(1);
+        }
     }
 
 
@@ -58,7 +66,7 @@ LogManager::~LogManager() {
     delete currentSegment;
 }
 
-std::vector<uint8_t> LogManager::padToBlockSize(const std::vector<uint8_t>& data) {
+std::vector<uint8_t> LogManager::padToBlockSize(const std::vector<uint8_t> &data) {
     std::vector<uint8_t> padded = data;
     if (padded.size() < BLOCK_SIZE) {
         padded.resize(BLOCK_SIZE, 0);
@@ -249,6 +257,16 @@ bool LogManager::recover() {
         std::cerr << "Failed to write header for new segment during recovery.\n";
         return false;
     }
+
+    // Design choice here: If we always write a checkpoint after recovery, we risk wasting segment space
+    // If we don't, repeated restarts between small writes result in longer and longer recovery times
+//    std::vector<uint8_t> cpPayload; // Empty payload.
+//    LogRecord cpRecord(LogRecordType::CHECKPOINT, cpPayload);
+//    if (!appendCheckpoint(cpRecord)) {
+//        std::cerr << "Failed to append initial checkpoint in new filesystem.\n";
+//        exit(1);
+//    }
+
     currentOffset = 0;
     std::cout << "Recovery complete. New segment " << currentSegmentSeq << " ready for writing.\n";
     return true;

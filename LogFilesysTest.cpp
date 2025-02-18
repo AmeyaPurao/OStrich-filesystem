@@ -161,6 +161,7 @@ void testLogManagerConcurrency() {
             std::vector<uint8_t> payload = {static_cast<uint8_t>(threadId), static_cast<uint8_t>(i)};
             LogRecord rec(LogRecordType::INODE_UPDATE, payload);
             if (logManager.appendRecord(rec)) {
+                cout << "Thread " << threadId << " appended record " << i << "\n";
                 successCount++;
             }
         }
@@ -203,9 +204,9 @@ int main() {
     testSuperblock();
     testLogRecord();
     testSegment();
-    testLogManagerBasic();
+    //testLogManagerBasic();
     //DebugPrintDisk("test_disk.img", 10000, Superblock::BLOCK_SIZE * 5);
-    //testLogManagerConcurrency();
+    testLogManagerConcurrency();
     std::cout << "All tests passed.\n";
     return 0;
 }
