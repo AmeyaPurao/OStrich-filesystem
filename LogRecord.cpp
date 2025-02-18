@@ -43,6 +43,11 @@ LogRecord LogRecord::deserialize(const std::vector<uint8_t>& data, size_t &offse
     if (offset + sizeof(LogRecordHeader) > data.size())
         return record;
     std::memcpy(&record.header, data.data() + offset, sizeof(LogRecordHeader));
+    if (record.header.recordType == 0) {
+        // This likely indicates an uninitialized or fresh block.
+        valid = false;
+        return record;
+    }
     uint32_t computed = computeChecksum(record.header);
     if (computed != record.header.headerChecksum)
         return record; // Checksum mismatch.

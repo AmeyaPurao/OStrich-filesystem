@@ -24,7 +24,6 @@ public:
     // Deserialize a superblock from a BLOCK_SIZE–sized buffer.
     static Superblock deserialize(const std::vector<uint8_t>& data);
 
-private:
     uint32_t magic;
     uint32_t version;
 };
