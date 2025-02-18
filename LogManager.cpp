@@ -229,6 +229,7 @@ bool LogManager::recover() {
             std::cout << "Recovered record: segment " << segNum
                       << ", data offset " << recordStart
                       << ", global sequence " << record.getSequenceNumber() << "\n";
+            globalSequence = record.getSequenceNumber() + 1;
         }
         if (!foundRecord) {
             // No valid records in this segment; assume we've reached the end.
