@@ -4,17 +4,12 @@ project(MockFilesys)
 set(CMAKE_CXX_STANDARD 17)
 
 #Replaced main.cpp with test class, change back later as needed
-add_executable(MockFilesys LogFilesysTest.cpp
-        FakeDiskDriver.h
-        FakeDiskDriver.cpp
-        BlockManager.h
-        BlockManager.cpp
-        Superblock.cpp
-        Superblock.h
-        LogRecord.cpp
-        LogRecord.h
-        Segment.cpp
-        Segment.h
-        LogManager.cpp
-        LogManager.h
-        )
+add_executable(MockFilesys main.cpp
+        interface/FakeDiskDriver.h
+        interface/FakeDiskDriver.cpp
+        interface/BlockManager.h
+        interface/BlockManager.cpp
+        filesys/Block.h
+        filesys/FileSystem.cpp
+        filesys/FileSystem.h
+)
