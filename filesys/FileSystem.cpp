@@ -37,11 +37,11 @@ void FileSystem::createFilesystem()
     superBlock->inodeRegionSize = (superBlock->inodeCount * sizeof(inode_t) +
             BlockManager::BLOCK_SIZE - 1) /
         BlockManager::BLOCK_SIZE;
-    superBlock->inodeTableSize = (superBlock->inodeCount * sizeof(uint32_t) +
+    superBlock->inodeTableSize = (superBlock->inodeCount * sizeof(inode_index_t) +
             BlockManager::BLOCK_SIZE - 1) /
         BlockManager::BLOCK_SIZE;
 
-    const uint64_t remainingBlocks = superBlock->totalBlockCount - superBlock->inodeBitmapSize -
+    const block_index_t remainingBlocks = superBlock->totalBlockCount - superBlock->inodeBitmapSize -
         superBlock->inodeRegionSize - superBlock->inodeTableSize;
     superBlock->dataBlockBitmapSize = ((remainingBlocks + 7) / 8 + BlockManager::BLOCK_SIZE - 1) /
         BlockManager::BLOCK_SIZE;
@@ -58,7 +58,7 @@ void FileSystem::createFilesystem()
 
     // Zero out the bitmaps
     constexpr block_t zeroBlock{};
-    for (uint32_t i = 0; i < superBlock->dataBlockBitmapSize; i++)
+    for (block_index_t i = 0; i < superBlock->dataBlockBitmapSize; i++)
     {
         if (!blockManager->writeBlock(superBlock->dataBlockBitmap + i, zeroBlock.data))
         {
@@ -67,7 +67,7 @@ void FileSystem::createFilesystem()
         }
     }
 
-    for (uint32_t i = 0; i < superBlock->inodeBitmapSize; i++)
+    for (block_index_t i = 0; i < superBlock->inodeBitmapSize; i++)
     {
         if (!blockManager->writeBlock(superBlock->inodeBitmap + i, zeroBlock.data))
         {
@@ -89,7 +89,7 @@ void FileSystem::loadFilesystem()
     std::cout << "Size: " << superBlock->size << std::endl;
 }
 
-uint32_t FileSystem::findNextFreeInode()
+inode_index_t FileSystem::findNextFreeInode()
 {
 
 }

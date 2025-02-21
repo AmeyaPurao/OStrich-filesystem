@@ -19,7 +19,7 @@ private:
 
     void createFilesystem();
     void loadFilesystem();
-    uint32_t findNextFreeInode();
+    inode_index_t findNextFreeInode();
 };
 
 

@@ -7,28 +7,30 @@
 #include <cstdint>
 
 #define MAGIC_NUMBER 0xCA5CADEDBA5EBA11
+using block_index_t = uint32_t;
+using inode_index_t = uint32_t;
 
 typedef struct inode
 {
     uint64_t size;
-    uint32_t blockCount;
+    block_index_t blockCount;
     uint16_t uid;
     uint16_t gid;
     uint16_t permissions;
-    uint32_t directBlocks[15];
-    uint32_t indirectBlocks[10];
-    uint32_t doubleIndirectBlocks[2];
+    block_index_t directBlocks[15];
+    block_index_t indirectBlocks[10];
+    block_index_t doubleIndirectBlocks[2];
 } inode_t;
 
 typedef struct directBlock
 {
-    uint32_t blockNumbers[1024];
+    block_index_t blockNumbers[1024];
 } directBlock_t;
 
 typedef struct logRecord
 {
-    uint32_t inodeNumber;
-    uint32_t inodeBlock;
+    inode_index_t inodeNumber;
+    block_index_t inodeBlock;
 } logRecord_t;
 
 typedef struct logEntry
@@ -40,20 +42,20 @@ typedef struct superBlock
 {
     uint64_t magic;
     uint64_t size;
-    uint32_t totalBlockCount;
-    uint32_t dataBlockCount;
-    uint32_t inodeCount;
-    uint32_t freeDataBlockCount;
-    uint32_t freeInodeCount;
-    uint32_t dataBlockBitmap;
-    uint32_t dataBlockBitmapSize;
-    uint32_t inodeBitmap;
-    uint32_t inodeBitmapSize;
-    uint32_t inodeTable;
-    uint32_t inodeTableSize;
-    uint32_t dataBlockRegionStart;
-    uint32_t inodeRegionStart;
-    uint32_t inodeRegionSize;
+    block_index_t totalBlockCount;
+    block_index_t dataBlockCount;
+    inode_index_t inodeCount;
+    block_index_t freeDataBlockCount;
+    inode_index_t freeInodeCount;
+    block_index_t dataBlockBitmap;
+    block_index_t dataBlockBitmapSize;
+    block_index_t inodeBitmap;
+    inode_index_t inodeBitmapSize;
+    block_index_t inodeTable;
+    inode_index_t inodeTableSize;
+    block_index_t dataBlockRegionStart;
+    block_index_t inodeRegionStart;
+    inode_index_t inodeRegionSize;
 } superBlock_t;
 
 typedef union block

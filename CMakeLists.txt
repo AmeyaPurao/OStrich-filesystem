@@ -12,4 +12,6 @@ add_executable(MockFilesys main.cpp
         filesys/Block.h
         filesys/FileSystem.cpp
         filesys/FileSystem.h
+        filesys/BitmapManager.cpp
+        filesys/BitmapManager.h
 )
