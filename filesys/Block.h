@@ -5,10 +5,16 @@
 #ifndef BLOCK_H
 #define BLOCK_H
 #include <cstdint>
+#include "../interface/BlockManager.h"
 
 #define MAGIC_NUMBER 0xCA5CADEDBA5EBA11
+
 using block_index_t = uint32_t;
 using inode_index_t = uint32_t;
+
+constexpr uint16_t NUM_DIRECT_BLOCKS = 15;
+constexpr uint16_t NUM_INDIRECT_BLOCKS = 10;
+constexpr uint16_t NUM_DOUBLE_INDIRECT_BLOCKS = 2;
 
 typedef struct inode
 {
@@ -17,10 +23,18 @@ typedef struct inode
     uint16_t uid;
     uint16_t gid;
     uint16_t permissions;
-    block_index_t directBlocks[15];
-    block_index_t indirectBlocks[10];
-    block_index_t doubleIndirectBlocks[2];
+    uint16_t numFiles;
+    block_index_t directBlocks[NUM_DIRECT_BLOCKS];
+    block_index_t indirectBlocks[NUM_INDIRECT_BLOCKS];
+    block_index_t doubleIndirectBlocks[NUM_DOUBLE_INDIRECT_BLOCKS];
 } inode_t;
+
+constexpr uint16_t INODES_PER_BLOCK = BlockManager::BLOCK_SIZE / sizeof(inode_t);
+
+typedef struct inodeBlock
+{
+    inode_t inodes[INODES_PER_BLOCK];
+} inodeBlock_t;
 
 typedef struct directBlock
 {
@@ -58,13 +72,43 @@ typedef struct superBlock
     inode_index_t inodeRegionSize;
 } superBlock_t;
 
+typedef struct bitmapBlock
+{
+    uint64_t parts[512];
+} bitmapBlock_t;
+
+constexpr uint16_t TABLE_ENTRIES_PER_BLOCK = BlockManager::BLOCK_SIZE / sizeof(inode_index_t);
+
+typedef struct inodeTableBlock
+{
+    inode_index_t inodeNumbers[TABLE_ENTRIES_PER_BLOCK];
+} inodeTableBlock_t;
+
+constexpr uint16_t MAX_FILE_NAME_LENGTH = 251;
+
+typedef struct dirEntry
+{
+    inode_index_t inodeNumber;
+    char name[MAX_FILE_NAME_LENGTH+1];
+} dirEntry_t;
+
+constexpr uint16_t DIRECTORY_ENTRIES_PER_BLOCK = BlockManager::BLOCK_SIZE / sizeof(dirEntry_t);
+
+typedef struct directoryBlock
+{
+    dirEntry_t entries[DIRECTORY_ENTRIES_PER_BLOCK];
+} directoryBlock_t;
+
 typedef union block
 {
     uint8_t data[4096];
-    inode_t inode;
+    inodeBlock_t inodeBlock;
     directBlock_t directBlock;
     logEntry_t logEntry;
     superBlock_t superBlock;
+    bitmapBlock_t bitmapBlock;
+    inodeTableBlock_t inodeTable;
+    directoryBlock_t directoryBlock;
 } block_t;
 
 #endif //BLOCK_H
