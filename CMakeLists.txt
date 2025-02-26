@@ -16,4 +16,6 @@ add_executable(MockFilesys main.cpp
         filesys/BitmapManager.h
         filesys/InodeTable.cpp
         filesys/InodeTable.h
+        filesys/LogManager.cpp
+        filesys/LogManager.h
 )

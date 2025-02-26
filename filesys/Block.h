@@ -12,6 +12,7 @@
 
 using block_index_t = uint32_t;
 using inode_index_t = uint32_t;
+using block_offset_t = uint16_t;
 
 constexpr uint16_t NUM_DIRECT_BLOCKS = 15;
 constexpr uint16_t NUM_INDIRECT_BLOCKS = 10;
@@ -61,6 +62,12 @@ typedef struct superBlock
     block_index_t dataBlockRegionStart;
     block_index_t inodeRegionStart;
     inode_index_t inodeRegionSize;
+    block_index_t logAreaStart;
+    block_index_t logAreaSize;
+    block_index_t latestLogCommitBlock;
+    block_offset_t latestLogCommitOffset;
+    block_index_t latestSystemStateBlock;
+    block_offset_t latestSystemStateOffset;
 } superBlock_t;
 
 typedef struct bitmapBlock

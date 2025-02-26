@@ -3,8 +3,9 @@
 //
 
 #include "FileSystem.h"
-
 #include <string.h>
+
+static const block_index_t LOG_AREA_SIZE = 64; // Reserve 64 blocks for the log area, need to adjust this later
 
 FileSystem::FileSystem(BlockManager* blockManager): blockManager(blockManager), inodeBitmap(nullptr),
                                                     blockBitmap(nullptr)
@@ -35,8 +36,7 @@ void FileSystem::createFilesystem()
     superBlock->totalBlockCount = blockManager->getNumBlocks() - 1;
     superBlock->inodeCount = 4 * (superBlock->totalBlockCount / 16);
     superBlock->inodeBitmapSize = ((superBlock->inodeCount + 7) / 8 + BlockManager::BLOCK_SIZE - 1)
-        /
-        BlockManager::BLOCK_SIZE;
+        / BlockManager::BLOCK_SIZE;
     superBlock->inodeRegionSize = (superBlock->inodeCount * sizeof(inode_t) +
             BlockManager::BLOCK_SIZE - 1) /
         BlockManager::BLOCK_SIZE;
@@ -44,22 +44,35 @@ void FileSystem::createFilesystem()
             BlockManager::BLOCK_SIZE - 1) /
         BlockManager::BLOCK_SIZE;
 
+    // Calculate remaining blocks for data and log area.
     const block_index_t remainingBlocks = superBlock->totalBlockCount - superBlock->inodeBitmapSize -
         superBlock->inodeRegionSize - superBlock->inodeTableSize;
     superBlock->dataBlockBitmapSize = ((remainingBlocks + 7) / 8 + BlockManager::BLOCK_SIZE - 1) /
         BlockManager::BLOCK_SIZE;
-    superBlock->dataBlockCount = remainingBlocks - superBlock->dataBlockBitmapSize;
+
+    // Reserve LOG_AREA_SIZE blocks for logging.
+    if (remainingBlocks < superBlock->dataBlockBitmapSize + LOG_AREA_SIZE)
+    {
+        std::cerr << "Not enough blocks remaining for data and log areas." << std::endl;
+        throw std::runtime_error("Insufficient space for log area");
+    }
+    superBlock->dataBlockCount = remainingBlocks - superBlock->dataBlockBitmapSize - LOG_AREA_SIZE;
     superBlock->freeDataBlockCount = superBlock->dataBlockCount;
     superBlock->freeInodeCount = superBlock->inodeCount;
     superBlock->size = superBlock->dataBlockCount * BlockManager::BLOCK_SIZE;
 
+    // Layout: bitmaps and tables are laid out consecutively.
     superBlock->inodeBitmap = 1;
     superBlock->inodeTable = superBlock->inodeBitmap + superBlock->inodeBitmapSize;
     superBlock->dataBlockBitmap = superBlock->inodeTable + superBlock->inodeTableSize;
     superBlock->inodeRegionStart = superBlock->dataBlockBitmap + superBlock->dataBlockBitmapSize;
     superBlock->dataBlockRegionStart = superBlock->inodeRegionStart + superBlock->inodeRegionSize;
 
-    // Zero out the bitmaps
+    // Reserve the log area at the end of the disk.
+    superBlock->logAreaStart = superBlock->dataBlockRegionStart + superBlock->dataBlockCount;
+    superBlock->logAreaSize = LOG_AREA_SIZE;
+
+    // Zero out the bitmaps.
     constexpr block_t zeroBlock{};
     for (block_index_t i = 0; i < superBlock->dataBlockBitmapSize; i++)
     {
@@ -98,6 +111,12 @@ void FileSystem::loadFilesystem()
                                     superBlock->dataBlockCount, blockManager);
     inodeTable = new InodeTable(superBlock->inodeTable, superBlock->inodeTableSize, superBlock->inodeCount,
                                 blockManager);
+
+    // Initialize LogManager using the log area from the superblock.
+    logManager = new LogManager(blockManager, superBlock->logAreaStart, superBlock->logAreaSize);
+
+    // Optionally, trigger recovery so that log entries (if any) are replayed.
+    logManager->recover();
 }
 
 bool FileSystem::readInode(inode_index_t inodeLocation, inode_t& inode)

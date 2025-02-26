@@ -8,6 +8,7 @@
 #include "Block.h"
 #include "InodeTable.h"
 #include "../interface/BlockManager.h"
+#include "LogManager.h"
 
 
 class FileSystem {
@@ -17,6 +18,7 @@ public:
 
 private:
     BlockManager *blockManager;
+    LogManager* logManager;
     BitmapManager *inodeBitmap;
     BitmapManager *blockBitmap;
     InodeTable *inodeTable;
