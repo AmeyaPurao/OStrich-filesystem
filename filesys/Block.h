@@ -6,6 +6,7 @@
 #define BLOCK_H
 #include <cstdint>
 #include "../interface/BlockManager.h"
+#include "LogRecord.h"
 
 #define MAGIC_NUMBER 0xCA5CADEDBA5EBA11
 
@@ -41,16 +42,6 @@ typedef struct directBlock
     block_index_t blockNumbers[1024];
 } directBlock_t;
 
-typedef struct logRecord
-{
-    inode_index_t inodeNumber;
-    block_index_t inodeBlock;
-} logRecord_t;
-
-typedef struct logEntry
-{
-    logRecord_t records[512];
-} logEntry_t;
 
 typedef struct superBlock
 {
