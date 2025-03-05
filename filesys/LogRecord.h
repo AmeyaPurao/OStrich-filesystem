@@ -7,81 +7,69 @@
 
 #include <cstdint>
 
+constexpr uint16_t NUM_LOGRECORDS_PER_LOGENTRY = 127;
+
+
 // Enum for the different log operation types.
-enum LogOpType {
+enum class LogOpType : uint16_t {
     LOG_OP_NONE = 0,
-    LOG_OP_INODE_CREATE,
     LOG_OP_INODE_UPDATE,
-    LOG_OP_BITMAP_SET,
-    LOG_OP_BITMAP_CLEAR,
-    LOG_OP_DIR_ADD_ENTRY,
+    LOG_OP_INODE_ADD,
+    LOG_UPDATE_INODE_DELETE,
+    LOG_UPDATE_CHECKPOINT,
     // Add more operation types as needed.
 };
 
-// Payload for an inode creation operation.
-struct InodeCreatePayload {
+// Payload for adding an inode to the inode table.
+struct InodeAddPayload {
     uint32_t inodeIndex;       // Newly created inode index.
-    uint16_t uid;              // Owner user ID.
-    uint16_t gid;              // Owner group ID.
-    uint16_t permissions;      // Permission bits.
-    uint16_t reserved;         // Padding for alignment.
-    uint64_t timestamp;        // Timestamp when the inode was created.
-    uint8_t reserved2[36];     // Reserved space to fill payload to 56 bytes.
+    uint32_t inodeLocation; // Block number of the actual inode
+    uint8_t reserved[8];     // Reserved space to fill payload to 16 bytes.
 };
 
-// Payload for an inode update operation.
+// Payload for replacing an existing inode in the inode table.
 struct InodeUpdatePayload {
-    uint32_t inodeIndex;       // Inode to update.
-    uint64_t newSize;          // Updated file size.
-    uint16_t newPermissions;   // Updated permission bits.
-    uint8_t reserved2[42];     // Padding to reach 56 bytes.
+    uint32_t inodeIndex;       // inode index to modify.
+    uint32_t inodeLocation; // Block number of the actual inode
+    uint8_t reserved[8];     // Reserved space to fill payload to 16 bytes.
 };
 
 // Payload for a bitmap operation (set or clear).
-struct BitmapOpPayload {
-    uint32_t blockIndex;       // Block index being modified.
-    uint32_t bitIndex;         // Specific bit within the bitmap.
-    uint8_t reserved2[48];     // Padding to reach 56 bytes.
+struct InodeDeletePayload {
+    uint32_t inodeIndex;       // inode index to remove from inode table.
+    uint8_t reserved[12];     // Reserved space to fill payload to 16 bytes.
 };
 
 // Payload for a directory entry addition operation.
-struct DirAddEntryPayload {
-    uint32_t parentInode;      // Parent directory inode.
-    uint32_t childInode;       // New entry’s inode.
-    char name[32];             // File or directory name (truncated if necessary).
-    uint8_t reserved2[16];     // Padding to reach 56 bytes.
+struct CheckpointPayload {
+    uint32_t checkpointLocation;       // Block number of the checkpoint header.
+    uint8_t reserved[12];     // Reserved space to fill payload to 16 bytes.
 };
 
-// Union that combines all possible payload types.
+// Union that combines all possible payload types (16 bytes).
 union LogRecordPayload {
-    InodeCreatePayload inodeCreate;
+    InodeAddPayload inodeAdd;
     InodeUpdatePayload inodeUpdate;
-    BitmapOpPayload bitmapOp;
-    DirAddEntryPayload dirAddEntry;
+    InodeDeletePayload inodeDelete;
+    CheckpointPayload checkpoint;
     // Add additional payload types as needed.
 };
 
-// Log record structure (exactly 64 bytes) for a single operation.
+// Log record structure (exactly 32 bytes) for a single operation.
 typedef struct logRecord {
-    uint32_t opType;              // Operation type (from LogOpType).
-    uint32_t reserved;            // Reserved for future use.
-    LogRecordPayload payload;     // Operation-specific payload.
+    uint64_t sequenceNumber;    // Incremental sequence number (8 bytes).
+    uint32_t magic;             // Magic for log validation (4 bytes).
+    LogOpType opType;           // Operation type (2 bytes)
+    uint16_t padding;           // Padding (2 bytes).
+    LogRecordPayload payload;   // Operation-specific payload (16 bytes).
 } logRecord_t;
-
-// Header for a log entry (first 64 bytes of a 4KB block).
-typedef struct logEntryHeader {
-    uint32_t magic;             // Magic constant for log validation, e.g., 0x4C4F4745 ("LOGE").
-    uint32_t sequenceNumber;    // Incremental sequence number.
-    uint16_t numRecords;        // Number of valid log records in this entry (max 63).
-    uint16_t reserved;          // Reserved for alignment or future use.
-    uint64_t timestamp;         // Creation timestamp of this log entry.
-    uint8_t reserved2[44];      // Reserved to pad the header to 64 bytes.
-} logEntryHeader_t;
 
 // Log entry structure that fits exactly one 4KB block.
 typedef struct logEntry {
-    logEntryHeader_t header;
-    logRecord_t records[63];      // 63 log records of 64 bytes each (63 * 64 = 4032 bytes).
+    uint32_t magic;             // Magic constant for log block validation.
+    uint16_t numRecords;        // Number of current log records in this entry (max 127).
+    uint8_t reserved[26];      // Reserved to pad the header to 32 bytes.
+    logRecord_t records[NUM_LOGRECORDS_PER_LOGENTRY];      // 127 log records of 32 bytes each (127 * 32 = 4064 bytes).
 } logEntry_t;
 
 

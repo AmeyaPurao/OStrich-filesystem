@@ -64,10 +64,9 @@ typedef struct superBlock
     inode_index_t inodeRegionSize;
     block_index_t logAreaStart;
     block_index_t logAreaSize;
-    block_index_t latestLogCommitBlock;
-    block_offset_t latestLogCommitOffset;
-    block_index_t latestSystemStateBlock;
-    block_offset_t latestSystemStateOffset;
+    uint64_t systemStateSeqNum;
+    uint16_t latestCheckpointIndex;
+    block_index_t checkpointArr[128];
 } superBlock_t;
 
 typedef struct bitmapBlock
@@ -97,12 +96,33 @@ typedef struct directoryBlock
     dirEntry_t entries[DIRECTORY_ENTRIES_PER_BLOCK];
 } directoryBlock_t;
 
+typedef struct checkpointEntry
+{
+    inode_index_t inodeIndex;
+    block_index_t inodeLocation;
+} checkpoint_entry_t;
+
+typedef struct checkpointBlock
+{
+    uint32_t magic;
+    uint64_t sequenceNumber;
+    uint64_t timestamp;
+    uint32_t checkpointID;
+    bool isHeader;
+    uint32_t numBlocks;
+    block_index_t nextCheckpointBlock;
+    uint8_t reserved[24]; // aligns the metadata part to 64 bytes
+    checkpoint_entry_t entries[504];
+
+} checkpointBlock_t;
+
 typedef union block
 {
     uint8_t data[4096];
     inodeBlock_t inodeBlock;
     directBlock_t directBlock;
     logEntry_t logEntry;
+    checkpointBlock_t checkpointBlock;
     superBlock_t superBlock;
     bitmapBlock_t bitmapBlock;
     inodeTableBlock_t inodeTable;

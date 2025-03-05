@@ -113,10 +113,8 @@ void FileSystem::loadFilesystem()
                                 blockManager);
 
     // Initialize LogManager using the log area from the superblock.
-    logManager = new LogManager(blockManager, superBlock->logAreaStart, superBlock->logAreaSize);
+    logManager = new LogManager(blockManager, inodeTable, superBlock->logAreaStart, superBlock->logAreaSize, superBlock->systemStateSeqNum);
 
-    // Optionally, trigger recovery so that log entries (if any) are replayed.
-    logManager->recover();
 }
 
 bool FileSystem::readInode(inode_index_t inodeLocation, inode_t& inode)
