@@ -4,6 +4,7 @@
 #include "Block.h"
 #include "LogRecord.h"
 #include "../interface/BlockManager.h"
+#include "BitmapManager.h"
 // #include "SpinLock.h"     // Will need to use spinlock from kernel team
 #include <stdint.h>
 #include <string.h>
@@ -12,15 +13,16 @@
 
 // Maximum number of checkpoints we will store.
 #define MAX_CHECKPOINTS 64
-#define RECORD_MAGIC 0x4A4B4C4D4E4F4041
-#define ENTRY_MAGIC 0x3A3B3C3D3E3F3031
+#define RECORD_MAGIC 0x4A4B4C4D
+#define ENTRY_MAGIC 0x3A3B3C3D
+#define CHECKPOINT_MAGIC 0x5A5B5C5D
 
 
 
 class LogManager {
 public:
     // Constructor: pass a pointer to BlockManager and specify the log area (starting block and number of blocks).
-    LogManager(BlockManager* blockManager, InodeTable* inode_table, uint32_t startBlock, uint32_t numBlocks, uint64_t latestSystemSeq);
+    LogManager(BlockManager* blockManager, BitmapManager* blockBitmap, InodeTable* inode_table, uint32_t startBlock, uint32_t numBlocks, uint64_t latestSystemSeq);
 
     // append to the log
     bool logOperation(LogOpType opType, LogRecordPayload* payload);
@@ -36,6 +38,8 @@ public:
 
 private:
     BlockManager* blockManager;
+    InodeTable* inodeTable;
+    BitmapManager* blockBitmap;
     uint32_t logStartBlock; // starting block of the dedicated log area
     uint32_t logNumBlocks;  // number of blocks allocated for the log area
 
@@ -45,7 +49,8 @@ private:
 
 
     // Create a checkpoint (lock fileystem, read current inode table, create sufficient checkpoint blocks and write
-    // to disk, then create return a checkpoint logrecord that points to the new checkpoint).
+    // to disk, then create return a checkpoint logrecord that points to the new checkpoint). Note that this does not
+    // actually write to the log or update the superblock - the expecation is that this will be done by the caller
     logRecord_t createCheckpoint();
 
     // Current log entry

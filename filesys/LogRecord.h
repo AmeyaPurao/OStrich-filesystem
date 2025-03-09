@@ -15,7 +15,7 @@ enum class LogOpType : uint16_t {
     LOG_OP_NONE = 0,
     LOG_OP_INODE_UPDATE,
     LOG_OP_INODE_ADD,
-    LOG_UPDATE_INODE_DELETE,
+    LOG_OP_INODE_DELETE,
     LOG_UPDATE_CHECKPOINT,
     // Add more operation types as needed.
 };

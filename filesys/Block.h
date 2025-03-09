@@ -17,6 +17,7 @@ using block_offset_t = uint16_t;
 constexpr uint16_t NUM_DIRECT_BLOCKS = 15;
 constexpr uint16_t NUM_INDIRECT_BLOCKS = 10;
 constexpr uint16_t NUM_DOUBLE_INDIRECT_BLOCKS = 2;
+constexpr uint16_t NUM_CHECKPOINTENTRIES_PER_CHECKPOINT = 504;
 
 typedef struct inode
 {
@@ -112,7 +113,7 @@ typedef struct checkpointBlock
     uint32_t numBlocks;
     block_index_t nextCheckpointBlock;
     uint8_t reserved[24]; // aligns the metadata part to 64 bytes
-    checkpoint_entry_t entries[504];
+    checkpoint_entry_t entries[NUM_CHECKPOINTENTRIES_PER_CHECKPOINT];
 
 } checkpointBlock_t;
 

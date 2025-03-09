@@ -113,7 +113,7 @@ void FileSystem::loadFilesystem()
                                 blockManager);
 
     // Initialize LogManager using the log area from the superblock.
-    logManager = new LogManager(blockManager, inodeTable, superBlock->logAreaStart, superBlock->logAreaSize, superBlock->systemStateSeqNum);
+    logManager = new LogManager(blockManager, blockBitmap, inodeTable, superBlock->logAreaStart, superBlock->logAreaSize, superBlock->systemStateSeqNum);
 
 }
 
