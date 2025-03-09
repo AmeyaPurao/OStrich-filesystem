@@ -83,7 +83,9 @@ logRecord_t LogManager::createCheckpoint() {
     checkpoint->checkpointID = superBlock.checkpointArr[superBlock.latestCheckpointIndex] + 1;
     checkpoint->magic = CHECKPOINT_MAGIC;
     checkpoint->isHeader = true;
-    checkpoint->numBlocks = 0;
+    checkpoint->sequenceNumber = globalSequence;
+    checkpoint->timestamp = get_timestamp();
+    checkpoint->numEntries = 0;
     block_index_t thisCheckpointIndex = blockBitmap->findNextFree();
     block_index_t firstCheckpointIndex = thisCheckpointIndex;
     if (!blockBitmap->setAllocated(thisCheckpointIndex)) {
@@ -101,8 +103,8 @@ logRecord_t LogManager::createCheckpoint() {
             checkpoint_entry_t entry;
             entry.inodeIndex = i;
             entry.inodeLocation = inodeLocation;
-            if (currentCheckpoint->numBlocks < NUM_CHECKPOINTENTRIES_PER_CHECKPOINT) {
-                currentCheckpoint->entries[currentCheckpoint->numBlocks++] = entry;
+            if (currentCheckpoint->numEntries < NUM_CHECKPOINTENTRIES_PER_CHECKPOINT) {
+                currentCheckpoint->entries[currentCheckpoint->numEntries++] = entry;
             } else {
                 // current checkpoint block is full, start a new one
                 newCheckpointIndex = blockBitmap->findNextFree();
@@ -124,11 +126,20 @@ logRecord_t LogManager::createCheckpoint() {
                 currentCheckpoint->checkpointID = checkpoint->checkpointID;
                 currentCheckpoint->magic = CHECKPOINT_MAGIC;
                 currentCheckpoint->isHeader = false;
-                currentCheckpoint->numBlocks = 0;
-                currentCheckpoint->entries[currentCheckpoint->numBlocks++] = entry;
+                currentCheckpoint->numEntries = 0;
+                currentCheckpoint->entries[currentCheckpoint->numEntries++] = entry;
             }
         }
     }
+    // write the last checkpoint block
+    if (currentCheckpoint->numEntries != 0) {
+        if (!blockManager->writeBlock(thisCheckpointIndex, reinterpret_cast<uint8_t *>(currentCheckpoint))) {
+            std::cerr << "Could not write checkpoint block to disk" << std::endl;
+            // logLock.unlock();
+            return {};
+        }
+    }
+    delete (currentCheckpoint);
     logRecord_t checkpointRecord;
     checkpointRecord.sequenceNumber = globalSequence++;
     checkpointRecord.magic = RECORD_MAGIC;
