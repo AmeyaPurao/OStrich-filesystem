@@ -5,12 +5,12 @@
 
 LogManager::LogManager(BlockManager *blockManager, BitmapManager *blockBitmap, InodeTable *inode_table,
                        uint32_t startBlock, uint32_t numBlocks, uint64_t latestSystemSeq)
-        : blockManager(blockManager),
-          logStartBlock(startBlock),
-          logNumBlocks(numBlocks),
-          globalSequence(latestSystemSeq),
-          inodeTable(inode_table),
-          blockBitmap(blockBitmap) {
+    : blockManager(blockManager),
+      logStartBlock(startBlock),
+      logNumBlocks(numBlocks),
+      globalSequence(latestSystemSeq),
+      inodeTable(inode_table),
+      blockBitmap(blockBitmap) {
     // Find the latest logrecord to see if it matches the system state
     // If it doesn't, replay the log from the last checkpoint
     // If it does, continue logging operations
@@ -31,8 +31,6 @@ LogManager::LogManager(BlockManager *blockManager, BitmapManager *blockBitmap, I
     } else {
         std::cerr << "Superblock latest system state not consistent with log state" << std::endl;
     }
-
-
 }
 
 bool LogManager::logOperation(LogOpType opType, LogRecordPayload *payload) {
@@ -86,6 +84,7 @@ logRecord_t LogManager::createCheckpoint() {
     checkpoint->sequenceNumber = globalSequence;
     checkpoint->timestamp = get_timestamp();
     checkpoint->numEntries = 0;
+    checkpoint->nextCheckpointBlock = NULL_INDEX;
     block_index_t thisCheckpointIndex = blockBitmap->findNextFree();
     block_index_t firstCheckpointIndex = thisCheckpointIndex;
     if (!blockBitmap->setAllocated(thisCheckpointIndex)) {
@@ -128,6 +127,7 @@ logRecord_t LogManager::createCheckpoint() {
                 currentCheckpoint->isHeader = false;
                 currentCheckpoint->numEntries = 0;
                 currentCheckpoint->entries[currentCheckpoint->numEntries++] = entry;
+                currentCheckpoint->nextCheckpointBlock = NULL_INDEX;
             }
         }
     }
@@ -151,9 +151,71 @@ logRecord_t LogManager::createCheckpoint() {
 
 
 bool LogManager::recover() {
-    std::cout
-            << "Recovery: Reapplying log entries from the last checkpoint... (this currently is a stub and does nothing)\n ";
-    // A full recovery would scan the log area starting at the checkpoint pointer.
+    std::cout << "Recovery: Reapplying log entries from the last checkpoint...\n ";
+    // Get the latest checkpoint
+    superBlock_t superBlock;
+    if (!blockManager->readBlock(0, (uint8_t *) &superBlock)) {
+        std::cout << "Failed to read superblock" << std::endl;
+        return false;
+    }
+    block_index_t latestCheckpointIndex = superBlock.checkpointArr[superBlock.latestCheckpointIndex];
+    checkpointBlock_t checkpoint;
+    int64_t checkpointLogRecordIndex;
+    while (blockManager->readBlock(latestCheckpointIndex, (uint8_t *) &checkpoint)) {
+        if (checkpoint.magic != CHECKPOINT_MAGIC) {
+            std::cerr << "Invalid checkpoint block" << std::endl;
+            return false;
+        }
+
+        if (checkpoint.isHeader) {
+            checkpointLogRecordIndex = checkpoint.sequenceNumber;
+        }
+
+        std::cout << "Recovering from Checkpoint Block " << latestCheckpointIndex << std::endl;
+        for (int i = 0; i < checkpoint.numEntries; i++) {
+            // TODO need to make a much more efficient implementation of setInodeLocation, and need to handle deletions
+            inodeTable->setInodeLocation(checkpoint.entries[i].inodeIndex, checkpoint.entries[i].inodeLocation);
+        }
+        if (checkpoint.nextCheckpointBlock == NULL_INDEX) {
+            break;
+        }
+        latestCheckpointIndex = checkpoint.nextCheckpointBlock;
+    }
+
+    // inode table recovered, now replay log entries from the checkpoint log record to the current global sequence number
+    for (long long i = checkpointLogRecordIndex; i < globalSequence; i++) {
+        block_index_t logBlockIndex = logStartBlock + i / NUM_LOGRECORDS_PER_LOGENTRY;
+        logEntry_t logEntry;
+        if (!blockManager->readBlock(logBlockIndex, (uint8_t *) &logEntry)) {
+            std::cerr << "Could not read log block" << std::endl;
+            return false;
+        }
+        logRecord_t logRecord = logEntry.records[i % NUM_LOGRECORDS_PER_LOGENTRY];
+        switch (logRecord.opType) {
+            case LogOpType::LOG_OP_INODE_ADD: {
+                inodeTable->setInodeLocation(logRecord.payload.inodeAdd.inodeIndex,
+                                             logRecord.payload.inodeAdd.inodeLocation);
+                break;
+            }
+            case LogOpType::LOG_OP_INODE_UPDATE: {
+                inodeTable->setInodeLocation(logRecord.payload.inodeUpdate.inodeIndex,
+                                             logRecord.payload.inodeUpdate.inodeLocation);
+                break;
+            }
+            case LogOpType::LOG_OP_INODE_DELETE: {
+                inodeTable->setInodeLocation(logRecord.payload.inodeDelete.inodeIndex, InodeTable::NULL_VALUE);
+                break;
+            }
+            case LogOpType::LOG_UPDATE_CHECKPOINT: {
+                // Do nothing
+                break;
+            }
+            default:
+                std::cerr << "Invalid log operation type" << std::endl;
+                return false;
+        }
+    }
+    cout << "Recovery complete" << endl;
     return true;
 }
 
@@ -164,9 +226,7 @@ bool LogManager::mountReadOnlySnapshot(uint32_t checkpointID) {
 }
 
 uint64_t LogManager::get_timestamp() {
-    // This function should return a current 64-bit timestamp.
-    // For bare-metal systems, you might use a hardware timer or RTC.
-    // Here we simply return a dummy value (e.g., a tick count).
+    // This function should return a current 64-bit timestamp. Will need some hardware support for this.
     static uint64_t dummyTime = 0;
     return ++dummyTime;
 }
