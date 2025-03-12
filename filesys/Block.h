@@ -8,16 +8,21 @@
 #include "../interface/BlockManager.h"
 #include "LogRecord.h"
 
-#define MAGIC_NUMBER 0xCA5CADEDBA5EBA11
 
 using block_index_t = uint32_t;
 using inode_index_t = uint32_t;
 using block_offset_t = uint16_t;
 
+constexpr uint64_t MAGIC_NUMBER = 0xCA5CADEDBA5EBA11;
+constexpr block_index_t BLOCK_NULL_VALUE = UINT32_MAX;
+constexpr inode_index_t INODE_NULL_VALUE = UINT32_MAX;
+
 constexpr uint16_t NUM_DIRECT_BLOCKS = 15;
 constexpr uint16_t NUM_INDIRECT_BLOCKS = 10;
 constexpr uint16_t NUM_DOUBLE_INDIRECT_BLOCKS = 2;
 constexpr uint16_t NUM_CHECKPOINTENTRIES_PER_CHECKPOINT = 504;
+
+constexpr uint16_t DIRECTORY_MASK = 1 << 9;
 
 typedef struct inode
 {

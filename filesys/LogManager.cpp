@@ -98,7 +98,7 @@ logRecord_t LogManager::createCheckpoint() {
     for (int i = 0; i < temp.superBlock.inodeCount; i++) {
         // TODO need to make a much more efficient implementation of getInodeLocation
         block_index_t inodeLocation = inodeTable->getInodeLocation(i);
-        if (inodeLocation != InodeTable::NULL_VALUE) {
+        if (inodeLocation != NULL_INDEX) {
             checkpoint_entry_t entry;
             entry.inodeIndex = i;
             entry.inodeLocation = inodeLocation;
@@ -201,7 +201,7 @@ bool LogManager::recover() {
                 break;
             }
             case LogOpType::LOG_OP_INODE_DELETE: {
-                inodeTable->setInodeLocation(logRecord.payload.inodeDelete.inodeIndex, InodeTable::NULL_VALUE);
+                inodeTable->setInodeLocation(logRecord.payload.inodeDelete.inodeIndex, NULL_INDEX);
                 break;
             }
             case LogOpType::LOG_UPDATE_CHECKPOINT: {

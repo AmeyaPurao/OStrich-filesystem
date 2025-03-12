@@ -6,6 +6,7 @@
 #define FILESYSTEM_H
 #include "BitmapManager.h"
 #include "Block.h"
+#include "Directory.h"
 #include "InodeTable.h"
 #include "../interface/BlockManager.h"
 #include "LogManager.h"
@@ -14,7 +15,10 @@
 class FileSystem {
 public:
     explicit FileSystem(BlockManager *blockManager);
-    inode_index_t createDirectory(inode_index_t baseDirectory, const char* name);
+    Directory* getRootDirectory() const;
+    // Directory* createDirectory();
+    // File* createFile();
+    // File* loadFile(inode_index_t inodeNumber);
 
 private:
     BlockManager *blockManager;
@@ -30,7 +34,7 @@ private:
     void loadFilesystem();
     bool readInode(inode_index_t inodeLocation, inode_t& inode);
     bool writeInode(inode_index_t inodeLocation, inode_t& inode);
-    bool addDirectoryEntry(inode_index_t baseDirectory, const char* fileName, inode_index_t fileNum);
+    Directory* createRootInode();
 };
 
 
