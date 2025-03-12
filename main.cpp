@@ -30,6 +30,9 @@ void runFilesystemSetupTest(BlockManager& blockManager)
     std::cout << "Creating new file /dir2/dir3/file2" << std::endl;
     File* file2 = dir3->createFile("file2");
 
+    std::cout << "Creating new file /dir2/tmpfile" << std::endl;
+    File* tmpFile = dir2->createFile("tmpfile");
+
     std::cout << "Creating new file /dir2/largefile" << std::endl;
     File* largeFile = dir2->createFile("largefile");
 
@@ -47,6 +50,12 @@ void runFilesystemSetupTest(BlockManager& blockManager)
     std::cout << "Changing data in largefile" << std::endl;
     auto newTestData = " - new data! - ";
     largeFile->write_at(10, (uint8_t*)newTestData, strlen(newTestData)); // don't copy null terminator
+
+    std::cout << "Deleting /dir2/tmpfile" << std::endl;
+    dir2->removeDirectoryEntry("tmpfile");
+    delete tmpFile;
+
+
 
     delete file1;
     delete file2;

@@ -24,12 +24,18 @@ inode_index_t Directory::getDirectoryEntry(const char* fileName) const
     for (inode_index_t i = 0; i < inode.blockCount; i++)
     {
         read_block_data(i, block.data);
+        uint8_t offset = 0;
         for (auto [inodeNumber, name] : block.directoryBlock.entries)
         {
             if (strcmp(name, fileName) == 0)
             {
                 // std::cout << "Returning inode number: " << inodeNumber << " for file: " << fileName << std::endl;
                 return inodeNumber;
+            }
+            offset++;
+            if (offset + i * DIRECTORY_ENTRIES_PER_BLOCK == inode.numFiles)
+            {
+                break;
             }
         }
     }
@@ -66,11 +72,59 @@ bool Directory::addDirectoryEntry(const char* fileName, inode_index_t fileNum)
 
 bool Directory::removeDirectoryEntry(const char* fileName)
 {
+    block_t block;
+    for (inode_index_t i = 0; i < inode.blockCount; i++)
+    {
+        read_block_data(i, block.data);
+        uint16_t offset = 0;
+        for (auto [inodeNumber, name] : block.directoryBlock.entries)
+        {
+            if (strcmp(name, fileName) == 0)
+            {
+                if (offset + i * DIRECTORY_ENTRIES_PER_BLOCK == inode.numFiles - 1)
+                {
+                    inode.numFiles--;
+                    return inodeTable->writeInode(inodeLocation, inode);
+                }
+                // swap with last entry
+                block_t lastBlock;
+                if (i == inode.blockCount - 1)
+                {
+                    lastBlock = block;
+                }
+                else
+                {
+                    read_block_data(inode.blockCount - 1, lastBlock.data);
+                }
+                block.directoryBlock.entries[offset] = lastBlock.directoryBlock.entries[(inode.numFiles-1) %
+                    DIRECTORY_ENTRIES_PER_BLOCK];
+                write_block_data(i, block.data);
+                inode.numFiles--;
+                return inodeTable->writeInode(inodeLocation, inode);
+            }
+            offset++;
+        }
+    }
     return false;
 }
 
 bool Directory::modifyDirectoryEntry(const char* fileName, inode_index_t fileNum)
 {
+    block_t block;
+    for (inode_index_t i = 0; i < inode.blockCount; i++)
+    {
+        read_block_data(i, block.data);
+        uint8_t offset = 0;
+        for (auto [inodeNumber, name] : block.directoryBlock.entries)
+        {
+            if (strcmp(name, fileName) == 0)
+            {
+                block.directoryBlock.entries[offset].inodeNumber = fileNum;
+                return write_block_data(i, block.data);
+            }
+            offset++;
+        }
+    }
     return false;
 }
 
@@ -100,7 +154,7 @@ std::vector<char*> Directory::listDirectoryEntries() const
 Directory* Directory::createDirectory(const char* name)
 {
     auto* newDir = new Directory(inodeTable, inodeBitmap, blockBitmap, blockManager);
-    if(!addDirectoryEntry(name, newDir->getInodeNumber()))
+    if (!addDirectoryEntry(name, newDir->getInodeNumber()))
     {
         return nullptr;
     }
@@ -110,7 +164,7 @@ Directory* Directory::createDirectory(const char* name)
 File* Directory::createFile(const char* name)
 {
     auto* newFile = new File(inodeTable, inodeBitmap, blockBitmap, blockManager);
-    if(!addDirectoryEntry(name, newFile->getInodeNumber()))
+    if (!addDirectoryEntry(name, newFile->getInodeNumber()))
     {
         return nullptr;
     }
@@ -125,7 +179,7 @@ File* Directory::getFile(const char* name) const
         return nullptr;
     }
     File* file = new File(inodeNumber, inodeTable, inodeBitmap, blockBitmap, blockManager);
-    if(file->isDirectory())
+    if (file->isDirectory())
     {
         return convertFile(file);
     }
@@ -136,9 +190,9 @@ Directory::Directory(const File* file) : File(file)
 {
 }
 
-Directory *Directory::convertFile(File *file)
+Directory* Directory::convertFile(File* file)
 {
-    if(!file->isDirectory()) return nullptr;
+    if (!file->isDirectory()) return nullptr;
     auto* dir = new Directory(file);
     delete file;
     return dir;
