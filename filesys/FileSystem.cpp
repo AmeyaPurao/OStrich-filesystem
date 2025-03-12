@@ -72,6 +72,15 @@ void FileSystem::createFilesystem()
     superBlock->logAreaStart = superBlock->dataBlockRegionStart + superBlock->dataBlockCount;
     superBlock->logAreaSize = LOG_AREA_SIZE;
 
+    // Initialize other fields.
+    superBlock->systemStateSeqNum = 0;
+    superBlock->latestCheckpointIndex = 0;
+    for (int i = 0; i < 128; i++)
+    {
+        superBlock->checkpointArr[i] = 0;
+    }
+
+
     // Zero out the bitmaps.
     constexpr block_t zeroBlock{};
     for (block_index_t i = 0; i < superBlock->dataBlockBitmapSize; i++)
@@ -99,6 +108,12 @@ void FileSystem::createFilesystem()
         std::cerr << "Could not write superblock" << std::endl;
         throw std::runtime_error("Could not write superblock");
     }
+    // // Take a checkpoint
+    // cout << "making a new logmanager in create filesys" << endl;
+    // blockBitmap = new BitmapManager(superBlock->dataBlockBitmap, superBlock->dataBlockBitmapSize,
+    //                             superBlock->dataBlockCount, blockManager);
+    // logManager = new LogManager(blockManager, blockBitmap, inodeTable, superBlock->logAreaStart, superBlock->logAreaSize, superBlock->systemStateSeqNum);
+    // logManager->createCheckpoint();
 }
 
 void FileSystem::loadFilesystem()
@@ -243,6 +258,10 @@ inode_index_t FileSystem::createDirectory(inode_index_t baseDirectory, const cha
         std::cerr << "Could not get free inode number" << std::endl;
         return InodeTable::NULL_VALUE;
     }
+    LogRecordPayload payload{};
+    payload.inodeAdd.inodeIndex = inodeNum;
+    payload.inodeAdd.inodeLocation = inodeLocation;
+    logManager->logOperation(LogOpType::LOG_OP_INODE_ADD, &payload);
     if (!inodeTable->setInodeLocation(inodeNum, inodeLocation))
     {
         std::cerr << "Could not set inode location" << std::endl;

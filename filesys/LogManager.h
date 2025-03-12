@@ -31,6 +31,11 @@ public:
     // Recovery: replay log entries from the last checkpoint (simplified).
     bool recover();
 
+    // Create a checkpoint (lock fileystem, read current inode table, create sufficient checkpoint blocks and write
+    // to disk, then create return a checkpoint logrecord that points to the new checkpoint). Note that this does not
+    // actually write to the log or update the superblock - the expecation is that this will be done by the caller
+    logRecord_t createCheckpoint();
+
     // Mount as a read-only snapshot based on a checkpoint ID.
     bool mountReadOnlySnapshot(uint32_t checkpointID);
 
@@ -48,10 +53,7 @@ private:
     // SpinLock logLock;
 
 
-    // Create a checkpoint (lock fileystem, read current inode table, create sufficient checkpoint blocks and write
-    // to disk, then create return a checkpoint logrecord that points to the new checkpoint). Note that this does not
-    // actually write to the log or update the superblock - the expecation is that this will be done by the caller
-    logRecord_t createCheckpoint();
+
 
     // Current log entry
     logEntry_t currentLogEntry;

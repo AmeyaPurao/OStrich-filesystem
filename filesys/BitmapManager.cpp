@@ -8,6 +8,7 @@ BitmapManager::BitmapManager(const block_index_t startBlock, const block_index_t
                              BlockManager* blockManager): startBlock(startBlock), numBlocks(numBlocks), size(size),
                                                           blockManager(blockManager)
 {
+    cout << "loading bitmap with start block: " << startBlock << " num blocks: " << numBlocks << " size: " << size << endl;
     loadBitmap(0);
 }
 
@@ -65,7 +66,8 @@ block_index_t BitmapManager::findNextFree()
                 {
                     if (!(loadedBlock.bitmapBlock.parts[i] & 1ULL << j))
                     {
-                        return loadedBlockIndex * BlockManager::BLOCK_SIZE * 8 + i * sizeof(uint64_t) * 8 + j;
+                        //return loadedBlockIndex * BlockManager::BLOCK_SIZE * 8 + i * sizeof(uint64_t) * 8 + j;
+                        return (loadedBlockIndex * NUM_PARTS * 64) + (i * 64) + j;
                     }
                 }
             }
