@@ -15,6 +15,7 @@ BlockManager::BlockManager(FakeDiskDriver& disk, const FakeDiskDriver::Partition
 
 bool BlockManager::readBlock(const size_t blockIndex, uint8_t* buffer)
 {
+    // std::cout << "\tReading block " << blockIndex << "\n";
     std::lock_guard<std::mutex> lock(blockMutex);
     size_t startSector = partition.startSector + blockIndex * sectorsPerBlock;
     if (blockIndex * sectorsPerBlock >= partition.sectorCount)
@@ -37,6 +38,7 @@ bool BlockManager::readBlock(const size_t blockIndex, uint8_t* buffer)
 
 bool BlockManager::writeBlock(const size_t blockIndex, const uint8_t* buffer)
 {
+    // std::cout << "\tWriting block " << blockIndex << "\n";
     std::lock_guard<std::mutex> lock(blockMutex);
     // if (block.size() != BLOCK_SIZE) {
     //     std::cerr << "writeBlock: block size mismatch (expected " << BLOCK_SIZE << " bytes).\n";

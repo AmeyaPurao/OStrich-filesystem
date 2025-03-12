@@ -5,8 +5,9 @@
 #include "BitmapManager.h"
 
 BitmapManager::BitmapManager(const block_index_t startBlock, const block_index_t numBlocks, const block_index_t size,
-                             BlockManager* blockManager): startBlock(startBlock), numBlocks(numBlocks), size(size),
-                                                          blockManager(blockManager)
+                             BlockManager* blockManager, block_index_t offset): startBlock(startBlock),
+    numBlocks(numBlocks), size(size),
+    blockManager(blockManager), additionalOffset(offset)
 {
     loadBitmap(0);
 }
@@ -65,7 +66,8 @@ block_index_t BitmapManager::findNextFree()
                 {
                     if (!(loadedBlock.bitmapBlock.parts[i] & 1ULL << j))
                     {
-                        return loadedBlockIndex * BlockManager::BLOCK_SIZE * 8 + i * sizeof(uint64_t) * 8 + j;
+                        return additionalOffset + (loadedBlockIndex * BlockManager::BLOCK_SIZE * 8 +
+                            i * sizeof(uint64_t) * 8 + j);
                     }
                 }
             }
@@ -78,6 +80,7 @@ block_index_t BitmapManager::findNextFree()
 
 bool BitmapManager::setAllocated(block_index_t index)
 {
+    index -= additionalOffset;
     if (index >= size)
     {
         std::cerr << "Index out of bounds for bitmap" << std::endl;
@@ -101,6 +104,7 @@ bool BitmapManager::setAllocated(block_index_t index)
 
 bool BitmapManager::setUnallocated(block_index_t index)
 {
+    index -= additionalOffset;
     if (index >= size)
     {
         std::cerr << "Index out of bounds for bitmap" << std::endl;
