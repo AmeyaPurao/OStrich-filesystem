@@ -29,6 +29,12 @@ LogManager::LogManager(BlockManager *blockManager, BitmapManager *blockBitmap, I
         cout << "latest system log sequence is: " << globalSequence << endl;
         std::cout << "System is caught up to the latest log record" << std::endl;
         currentLogEntry = tempBlock;
+        if (globalSequence == 0) {
+            // New filesytem, need to create first checkpoint
+            if (!createCheckpoint()) {
+                std::cout << "Failed to create initial checkpoint" << std::endl;
+            }
+        }
     } else {
         std::cerr << "Superblock latest system state not consistent with log state" << std::endl;
     }
@@ -68,13 +74,13 @@ bool LogManager::logOperation(LogOpType opType, LogRecordPayload *payload) {
 }
 
 
-logRecord_t LogManager::createCheckpoint() {
+bool LogManager::createCheckpoint() {
     // logLock.lock();
     block_t temp;
     if (!blockManager->readBlock(0, (uint8_t *) &temp)) {
         std::cout << "Failed to read superblock" << std::endl;
         // logLock.unlock();
-        return {};
+        return false;
     }
 
     auto *checkpoint = new checkpointBlock_t{};
@@ -90,7 +96,7 @@ logRecord_t LogManager::createCheckpoint() {
     if (!blockBitmap->setAllocated(thisCheckpointIndex)) {
         std::cerr << "Could not set block bitmap" << std::endl;
         // logLock.unlock();
-        return {};
+        return false;
     }
     block_index_t newCheckpointIndex;
 
@@ -110,14 +116,14 @@ logRecord_t LogManager::createCheckpoint() {
                 if (!blockBitmap->setAllocated(newCheckpointIndex)) {
                     std::cerr << "Could not set block bitmap" << std::endl;
                     // logLock.unlock();
-                    return {};
+                    return false;
                 }
                 currentCheckpoint->nextCheckpointBlock = newCheckpointIndex;
                 //write to the disk at thisCheckpointIndex
                 if (!blockManager->writeBlock(thisCheckpointIndex, reinterpret_cast<uint8_t *>(currentCheckpoint))) {
                     std::cerr << "Could not write checkpoint block to disk" << std::endl;
                     // logLock.unlock();
-                    return {};
+                    return false;
                 }
                 thisCheckpointIndex = newCheckpointIndex;
                 delete (currentCheckpoint);
@@ -132,21 +138,29 @@ logRecord_t LogManager::createCheckpoint() {
         }
     }
     // write the last checkpoint block
-    if (currentCheckpoint->numEntries != 0) {
+    // if (currentCheckpoint->numEntries != 0) {
         if (!blockManager->writeBlock(thisCheckpointIndex, reinterpret_cast<uint8_t *>(currentCheckpoint))) {
             std::cerr << "Could not write checkpoint block to disk" << std::endl;
             // logLock.unlock();
-            return {};
+            return false;
         }
-    }
+    // }
     delete (currentCheckpoint);
     logRecord_t checkpointRecord;
-    checkpointRecord.sequenceNumber = globalSequence++;
-    checkpointRecord.magic = RECORD_MAGIC;
-    checkpointRecord.opType = LogOpType::LOG_UPDATE_CHECKPOINT;
     checkpointRecord.payload.checkpoint.checkpointLocation = firstCheckpointIndex;
+    logOperation(LogOpType::LOG_UPDATE_CHECKPOINT, &checkpointRecord.payload);
+
+    //Update superblock to show new checkpoint
+    temp.superBlock.latestCheckpointIndex ++;
+    temp.superBlock.checkpointArr[temp.superBlock.latestCheckpointIndex] = firstCheckpointIndex;
+    if (!blockManager->writeBlock(0, (uint8_t *) &temp)) {
+        std::cerr << "Could not write superblock" << std::endl;
+        // logLock.unlock();
+        return false;
+    }
+    cout << "Checkpoint created at block " << firstCheckpointIndex << endl;
     // logLock.unlock();
-    return checkpointRecord;
+    return true;
 }
 
 
@@ -161,6 +175,7 @@ bool LogManager::recover() {
     block_index_t latestCheckpointIndex = temp.superBlock.checkpointArr[temp.superBlock.latestCheckpointIndex];
     checkpointBlock_t checkpoint;
     int64_t checkpointLogRecordIndex;
+    cout << "Latest checkpoint block index: " << latestCheckpointIndex << endl;
     while (blockManager->readBlock(latestCheckpointIndex, (uint8_t *) &checkpoint)) {
         if (checkpoint.magic != CHECKPOINT_MAGIC) {
             std::cerr << "Invalid checkpoint block" << std::endl;

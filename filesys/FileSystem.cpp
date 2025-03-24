@@ -7,6 +7,7 @@
 #include <string.h>
 
 static const block_index_t LOG_AREA_SIZE = 64; // Reserve 64 blocks for the log area, need to adjust this later
+static const uint32_t NUM_CHECKPOINTS = 128;
 
 #include "Directory.h"
 
@@ -85,7 +86,7 @@ void FileSystem::createFilesystem()
     // Initialize other fields.
     superBlock->systemStateSeqNum = 0;
     superBlock->latestCheckpointIndex = 0;
-    for (int i = 0; i < 128; i++)
+    for (int i = 0; i < NUM_CHECKPOINTS; i++)
     {
         superBlock->checkpointArr[i] = 0;
     }
