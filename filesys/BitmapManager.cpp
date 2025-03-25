@@ -9,7 +9,7 @@ BitmapManager::BitmapManager(const block_index_t startBlock, const block_index_t
     numBlocks(numBlocks), size(size),
     blockManager(blockManager), additionalOffset(offset)
 {
-    cout << "loading bitmap with start block: " << startBlock << " num blocks: " << numBlocks << " size: " << size << endl;
+//    cout << "loading bitmap with start block: " << startBlock << " num blocks: " << numBlocks << " size: " << size << endl;
     loadBitmap(0);
 }
 

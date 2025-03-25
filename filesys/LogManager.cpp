@@ -14,6 +14,8 @@ LogManager::LogManager(BlockManager *blockManager, BitmapManager *blockBitmap, I
     // Find the latest logrecord to see if it matches the system state
     // If it doesn't, replay the log from the last checkpoint
     // If it does, continue logging operations
+
+    cout << "Initialize logmanager: latest system log sequence is: " << latestSystemSeq << endl;
     block_index_t latestLogBlock = startBlock + latestSystemSeq / NUM_LOGRECORDS_PER_LOGENTRY;
     int32_t latestLogOffset = latestSystemSeq % NUM_LOGRECORDS_PER_LOGENTRY;
     logEntry_t tempBlock;
@@ -26,7 +28,7 @@ LogManager::LogManager(BlockManager *blockManager, BitmapManager *blockBitmap, I
         //TODO check to make sure system state is consistent, then replay future log entries
         recover();
     } else if (tempBlock.records[latestLogOffset].sequenceNumber == latestSystemSeq) {
-        cout << "latest system log sequence is: " << globalSequence << endl;
+//        cout << "latest system log sequence is: " << globalSequence << endl;
         std::cout << "System is caught up to the latest log record" << std::endl;
         currentLogEntry = tempBlock;
         if (globalSequence == 0) {
@@ -36,7 +38,7 @@ LogManager::LogManager(BlockManager *blockManager, BitmapManager *blockBitmap, I
             }
         }
     } else {
-        std::cerr << "Superblock latest system state not consistent with log state" << std::endl;
+        std::cerr << "Superblock latest system state not consistent with log state: " << tempBlock.records[latestLogOffset].sequenceNumber << std::endl;
     }
 }
 
@@ -48,6 +50,8 @@ bool LogManager::logOperation(LogOpType opType, LogRecordPayload *payload) {
     record.magic = RECORD_MAGIC;
     record.opType = opType;
     record.payload = *payload;
+
+    cout<<"Logging operation with sequence number: "<<record.sequenceNumber<<endl;
 
 
     if (currentLogEntry.numRecords < NUM_LOGRECORDS_PER_LOGENTRY) {
@@ -65,6 +69,21 @@ bool LogManager::logOperation(LogOpType opType, LogRecordPayload *payload) {
     block_index_t index = logStartBlock + globalSequence / NUM_LOGRECORDS_PER_LOGENTRY;
     if (!blockManager->writeBlock(index, reinterpret_cast<uint8_t *>(&currentLogEntry))) {
         std::cerr << "Could not write log entry to disk" << std::endl;
+        // logLock.unlock();
+        return false;
+    }
+
+    //update global sequence in superblock
+    block_t temp;
+    if (!blockManager->readBlock(0, (uint8_t *) &temp)) {
+        std::cout << "Failed to read superblock" << std::endl;
+        // logLock.unlock();
+        return false;
+    }
+    // Subtract 1 since global sequence is post incremented
+    temp.superBlock.systemStateSeqNum = globalSequence - 1;
+    if (!blockManager->writeBlock(0, (uint8_t *) &temp)) {
+        std::cerr << "Could not write superblock" << std::endl;
         // logLock.unlock();
         return false;
     }
@@ -175,6 +194,7 @@ bool LogManager::recover() {
     block_index_t latestCheckpointIndex = temp.superBlock.checkpointArr[temp.superBlock.latestCheckpointIndex];
     checkpointBlock_t checkpoint;
     int64_t checkpointLogRecordIndex;
+    cout << "latest global sequence number: " << globalSequence << endl;
     cout << "Latest checkpoint block index: " << latestCheckpointIndex << endl;
     while (blockManager->readBlock(latestCheckpointIndex, (uint8_t *) &checkpoint)) {
         if (checkpoint.magic != CHECKPOINT_MAGIC) {
@@ -204,6 +224,7 @@ bool LogManager::recover() {
             return false;
         }
         logRecord_t logRecord = currentLogEntry.records[i % NUM_LOGRECORDS_PER_LOGENTRY];
+        cout << "Reapplying log entry with type " << (uint16_t) logRecord.opType << " at sequence number " << logRecord.sequenceNumber << endl;
         switch (logRecord.opType) {
             case LogOpType::LOG_OP_INODE_ADD: {
                 inodeTable->setInodeLocation(logRecord.payload.inodeAdd.inodeIndex,

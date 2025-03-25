@@ -29,7 +29,7 @@ FileSystem::FileSystem(BlockManager* blockManager): blockManager(blockManager), 
     }
     else
     {
-        // std::cout << "Existing filesystem detected" << std::endl;
+        std::cout << "Existing filesystem detected" << std::endl;
     }
     loadFilesystem();
 }
@@ -119,12 +119,6 @@ void FileSystem::createFilesystem()
         std::cerr << "Could not write superblock" << std::endl;
         throw std::runtime_error("Could not write superblock");
     }
-    // // Take a checkpoint
-    // cout << "making a new logmanager in create filesys" << endl;
-    // blockBitmap = new BitmapManager(superBlock->dataBlockBitmap, superBlock->dataBlockBitmapSize,
-    //                             superBlock->dataBlockCount, blockManager);
-    // logManager = new LogManager(blockManager, blockBitmap, inodeTable, superBlock->logAreaStart, superBlock->logAreaSize, superBlock->systemStateSeqNum);
-    // logManager->createCheckpoint();
 }
 
 void FileSystem::loadFilesystem()
