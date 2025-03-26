@@ -120,136 +120,176 @@ bool LogManager::createCheckpoint() {
     block_index_t newCheckpointIndex;
 
     checkpointBlock_t *currentCheckpoint = checkpoint;
-    for (int i = 0; i < temp.superBlock.inodeCount; i++) {
-        // TODO need to make a much more efficient implementation of getInodeLocation
-        block_index_t inodeLocation = inodeTable->getInodeLocation(i);
-        if (inodeLocation != NULL_INDEX) {
-            checkpoint_entry_t entry;
-            entry.inodeIndex = i;
-            entry.inodeLocation = inodeLocation;
-            if (currentCheckpoint->numEntries < NUM_CHECKPOINTENTRIES_PER_CHECKPOINT) {
-                currentCheckpoint->entries[currentCheckpoint->numEntries++] = entry;
-            } else {
-                // current checkpoint block is full, start a new one
-                newCheckpointIndex = blockBitmap->findNextFree();
-                if (!blockBitmap->setAllocated(newCheckpointIndex)) {
-                    std::cerr << "Could not set block bitmap" << std::endl;
-                    // logLock.unlock();
-                    return false;
+
+    // Calculate the total number of blocks covering the inode table.
+    inode_index_t totalInodes = temp.superBlock.inodeCount;
+    inode_index_t entriesPerBlock = TABLE_ENTRIES_PER_BLOCK;
+    inode_index_t totalBlocks = (totalInodes + entriesPerBlock - 1) / entriesPerBlock;
+
+    // Buffer to hold one block's worth of inode numbers.
+    inode_index_t inodeBuffer[TABLE_ENTRIES_PER_BLOCK];
+
+    for (inode_index_t blockIdx = 0; blockIdx < totalBlocks; blockIdx++) {
+        if (!inodeTable->readInodeBlock(blockIdx, inodeBuffer)) {
+            std::cerr << "Failed to read inode table block " << blockIdx << std::endl;
+            return false;
+        }
+        for (inode_index_t j = 0; j < entriesPerBlock; j++) {
+            inode_index_t globalInodeIndex = blockIdx * entriesPerBlock + j;
+            if (globalInodeIndex >= totalInodes)
+                break;
+            // Only add if the inode entry is valid (not NULL_INDEX).
+            if (inodeBuffer[j] != INODE_NULL_VALUE) {
+                checkpoint_entry_t entry;
+                entry.inodeIndex = globalInodeIndex;
+                entry.inodeLocation = inodeBuffer[j];
+                if (currentCheckpoint->numEntries < NUM_CHECKPOINTENTRIES_PER_CHECKPOINT) {
+                    currentCheckpoint->entries[currentCheckpoint->numEntries++] = entry;
+                } else {
+                    // Current checkpoint block is full, allocate a new one.
+                    newCheckpointIndex = blockBitmap->findNextFree();
+                    if (!blockBitmap->setAllocated(newCheckpointIndex)) {
+                        std::cerr << "Could not set block bitmap for new checkpoint block" << std::endl;
+                        return false;
+                    }
+                    currentCheckpoint->nextCheckpointBlock = newCheckpointIndex;
+                    if (!blockManager->writeBlock(thisCheckpointIndex, reinterpret_cast<uint8_t *>(currentCheckpoint))) {
+                        std::cerr << "Could not write checkpoint block to disk" << std::endl;
+                        return false;
+                    }
+                    thisCheckpointIndex = newCheckpointIndex;
+                    delete (currentCheckpoint);
+                    currentCheckpoint = new checkpointBlock_t{};
+                    currentCheckpoint->checkpointID = checkpoint->checkpointID;
+                    currentCheckpoint->magic = CHECKPOINT_MAGIC;
+                    currentCheckpoint->isHeader = false;
+                    currentCheckpoint->numEntries = 0;
+                    currentCheckpoint->entries[currentCheckpoint->numEntries++] = entry;
+                    currentCheckpoint->nextCheckpointBlock = NULL_INDEX;
                 }
-                currentCheckpoint->nextCheckpointBlock = newCheckpointIndex;
-                //write to the disk at thisCheckpointIndex
-                if (!blockManager->writeBlock(thisCheckpointIndex, reinterpret_cast<uint8_t *>(currentCheckpoint))) {
-                    std::cerr << "Could not write checkpoint block to disk" << std::endl;
-                    // logLock.unlock();
-                    return false;
-                }
-                thisCheckpointIndex = newCheckpointIndex;
-                delete (currentCheckpoint);
-                currentCheckpoint = new checkpointBlock_t{};
-                currentCheckpoint->checkpointID = checkpoint->checkpointID;
-                currentCheckpoint->magic = CHECKPOINT_MAGIC;
-                currentCheckpoint->isHeader = false;
-                currentCheckpoint->numEntries = 0;
-                currentCheckpoint->entries[currentCheckpoint->numEntries++] = entry;
-                currentCheckpoint->nextCheckpointBlock = NULL_INDEX;
             }
         }
     }
-    // write the last checkpoint block
-    // if (currentCheckpoint->numEntries != 0) {
-        if (!blockManager->writeBlock(thisCheckpointIndex, reinterpret_cast<uint8_t *>(currentCheckpoint))) {
-            std::cerr << "Could not write checkpoint block to disk" << std::endl;
-            // logLock.unlock();
-            return false;
-        }
-    // }
+    // Write the last checkpoint block.
+    if (!blockManager->writeBlock(thisCheckpointIndex, reinterpret_cast<uint8_t *>(currentCheckpoint))) {
+        std::cerr << "Could not write final checkpoint block to disk" << std::endl;
+        return false;
+    }
     delete (currentCheckpoint);
+
+    // Create a checkpoint log record.
     logRecord_t checkpointRecord;
     checkpointRecord.payload.checkpoint.checkpointLocation = firstCheckpointIndex;
     logOperation(LogOpType::LOG_UPDATE_CHECKPOINT, &checkpointRecord.payload);
 
-    //Update superblock to show new checkpoint
-    temp.superBlock.latestCheckpointIndex ++;
+    // Update superblock to show new checkpoint.
+    temp.superBlock.latestCheckpointIndex++;
     temp.superBlock.checkpointArr[temp.superBlock.latestCheckpointIndex] = firstCheckpointIndex;
-    if (!blockManager->writeBlock(0, (uint8_t *) &temp)) {
+    if (!blockManager->writeBlock(0, (uint8_t *)&temp)) {
         std::cerr << "Could not write superblock" << std::endl;
-        // logLock.unlock();
         return false;
     }
-    cout << "Checkpoint created at block " << firstCheckpointIndex << endl;
-    // logLock.unlock();
+    std::cout << "Checkpoint created at block " << firstCheckpointIndex << std::endl;
     return true;
 }
 
 
 bool LogManager::recover() {
     std::cout << "Recovery: Reapplying log entries from the last checkpoint...\n";
-    // Get the latest checkpoint
-    block_t temp;
-    if (!blockManager->readBlock(0, (uint8_t *) &temp)) {
+    // Read the superblock to get the checkpoint information.
+    block_t superblockBlock;
+    if (!blockManager->readBlock(0, reinterpret_cast<uint8_t *>(&superblockBlock))) {
         std::cout << "Failed to read superblock" << std::endl;
         return false;
     }
-    block_index_t latestCheckpointIndex = temp.superBlock.checkpointArr[temp.superBlock.latestCheckpointIndex];
+
+    // Get the latest checkpoint block index from the superblock.
+    block_index_t latestCheckpointIndex = superblockBlock.superBlock.checkpointArr[superblockBlock.superBlock.latestCheckpointIndex];
     checkpointBlock_t checkpoint;
-    int64_t checkpointLogRecordIndex;
-    cout << "latest global sequence number: " << globalSequence << endl;
-    cout << "Latest checkpoint block index: " << latestCheckpointIndex << endl;
-    while (blockManager->readBlock(latestCheckpointIndex, (uint8_t *) &checkpoint)) {
-        if (checkpoint.magic != CHECKPOINT_MAGIC) {
-            std::cerr << "Invalid checkpoint block" << std::endl;
+    int64_t checkpointLogRecordIndex = -1; // initialize to an invalid value
+    std::cout << "Latest global sequence number: " << globalSequence << std::endl;
+    std::cout << "Latest checkpoint block index: " << latestCheckpointIndex << std::endl;
+
+    // Traverse the checkpoint chain.
+    while (true) {
+        if (!blockManager->readBlock(latestCheckpointIndex, reinterpret_cast<uint8_t *>(&checkpoint))) {
+            std::cerr << "Failed to read checkpoint block at index " << latestCheckpointIndex << std::endl;
             return false;
         }
+        if (checkpoint.magic != CHECKPOINT_MAGIC) {
+            std::cerr << "Invalid checkpoint block at index " << latestCheckpointIndex << std::endl;
+            return false;
+        }
+        // If this block is the header, capture its sequence number.
         if (checkpoint.isHeader) {
             checkpointLogRecordIndex = checkpoint.sequenceNumber;
         }
+        std::cout << "Processing checkpoint block " << latestCheckpointIndex << " with "
+                  << checkpoint.numEntries << " entries." << std::endl;
 
-        std::cout << "Recovering from Checkpoint Block " << latestCheckpointIndex << std::endl;
+        // For each entry in the checkpoint block, update the inode table.
         for (int i = 0; i < checkpoint.numEntries; i++) {
-            // TODO need to make a much more efficient implementation of setInodeLocation, and need to handle deletions
-            inodeTable->setInodeLocation(checkpoint.entries[i].inodeIndex, checkpoint.entries[i].inodeLocation);
+            if (!inodeTable->setInodeLocation(checkpoint.entries[i].inodeIndex, checkpoint.entries[i].inodeLocation)) {
+                std::cerr << "Failed to set inode location for inode index "
+                          << checkpoint.entries[i].inodeIndex << std::endl;
+                return false;
+            }
         }
+        // If there is no next checkpoint block, break out of the loop.
         if (checkpoint.nextCheckpointBlock == NULL_INDEX) {
             break;
         }
         latestCheckpointIndex = checkpoint.nextCheckpointBlock;
     }
 
-    // inode table recovered, now replay log entries from the checkpoint log record to the current global sequence number
-    for (long long i = checkpointLogRecordIndex; i < globalSequence; i++) {
-        block_index_t logBlockIndex = logStartBlock + i / NUM_LOGRECORDS_PER_LOGENTRY;
-        if (!blockManager->readBlock(logBlockIndex, (uint8_t *) &currentLogEntry)) {
-            std::cerr << "Could not read log block" << std::endl;
+    if (checkpointLogRecordIndex < 0) {
+        std::cerr << "No header found in checkpoint chain. Recovery cannot proceed." << std::endl;
+        return false;
+    }
+
+    // Replay log records from the checkpoint's sequence number to the current global sequence.
+    for (int64_t i = checkpointLogRecordIndex; i < globalSequence; i++) {
+        block_index_t logBlockIndex = logStartBlock + (i / NUM_LOGRECORDS_PER_LOGENTRY);
+        if (!blockManager->readBlock(logBlockIndex, reinterpret_cast<uint8_t *>(&currentLogEntry))) {
+            std::cerr << "Could not read log block at index " << logBlockIndex << std::endl;
             return false;
         }
         logRecord_t logRecord = currentLogEntry.records[i % NUM_LOGRECORDS_PER_LOGENTRY];
-        cout << "Reapplying log entry with type " << (uint16_t) logRecord.opType << " at sequence number " << logRecord.sequenceNumber << endl;
+        std::cout << "Reapplying log record: sequence " << logRecord.sequenceNumber
+                  << ", type " << static_cast<uint16_t>(logRecord.opType) << std::endl;
         switch (logRecord.opType) {
-            case LogOpType::LOG_OP_INODE_ADD: {
-                inodeTable->setInodeLocation(logRecord.payload.inodeAdd.inodeIndex,
-                                             logRecord.payload.inodeAdd.inodeLocation);
+            case LogOpType::LOG_OP_INODE_ADD:
+                if (!inodeTable->setInodeLocation(logRecord.payload.inodeAdd.inodeIndex,
+                                                  logRecord.payload.inodeAdd.inodeLocation)) {
+                    std::cerr << "Failed to apply LOG_OP_INODE_ADD for inode index "
+                              << logRecord.payload.inodeAdd.inodeIndex << std::endl;
+                    return false;
+                }
                 break;
-            }
-            case LogOpType::LOG_OP_INODE_UPDATE: {
-                inodeTable->setInodeLocation(logRecord.payload.inodeUpdate.inodeIndex,
-                                             logRecord.payload.inodeUpdate.inodeLocation);
+            case LogOpType::LOG_OP_INODE_UPDATE:
+                if (!inodeTable->setInodeLocation(logRecord.payload.inodeUpdate.inodeIndex,
+                                                  logRecord.payload.inodeUpdate.inodeLocation)) {
+                    std::cerr << "Failed to apply LOG_OP_INODE_UPDATE for inode index "
+                              << logRecord.payload.inodeUpdate.inodeIndex << std::endl;
+                    return false;
+                }
                 break;
-            }
-            case LogOpType::LOG_OP_INODE_DELETE: {
-                inodeTable->setInodeLocation(logRecord.payload.inodeDelete.inodeIndex, NULL_INDEX);
+            case LogOpType::LOG_OP_INODE_DELETE:
+                if (!inodeTable->setInodeLocation(logRecord.payload.inodeDelete.inodeIndex, NULL_INDEX)) {
+                    std::cerr << "Failed to apply LOG_OP_INODE_DELETE for inode index "
+                              << logRecord.payload.inodeDelete.inodeIndex << std::endl;
+                    return false;
+                }
                 break;
-            }
-            case LogOpType::LOG_UPDATE_CHECKPOINT: {
-                // Do nothing
+            case LogOpType::LOG_UPDATE_CHECKPOINT:
+                // No action required.
                 break;
-            }
             default:
-                std::cerr << "Invalid log operation type" << std::endl;
+                std::cerr << "Invalid log operation type encountered during recovery." << std::endl;
                 return false;
         }
     }
-    cout << "Recovery complete" << endl;
+    std::cout << "Recovery complete." << std::endl;
     return true;
 }
 

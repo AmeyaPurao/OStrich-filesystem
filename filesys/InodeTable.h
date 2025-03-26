@@ -21,6 +21,9 @@ public:
     bool writeInode(inode_index_t inodeLocation, inode_t& inode);
     bool readInode(inode_index_t inodeLocation, inode_t& inode);
 
+    // outBuffer must be able to hold TABLE_ENTRIES_PER_BLOCK entries.
+    bool readInodeBlock(inode_index_t blockIndex, inode_index_t* outBuffer);
+
 private:
     block_index_t startBlock;
     inode_index_t numBlocks;

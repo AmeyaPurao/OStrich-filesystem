@@ -70,41 +70,113 @@ bool Directory::addDirectoryEntry(const char* fileName, inode_index_t fileNum)
     return inodeTable->writeInode(inodeLocation, inode);
 }
 
-bool Directory::removeDirectoryEntry(const char* fileName)
-{
+bool Directory::removeDirectoryEntry(const char* fileName) {
+    // Iterate over each block in the directory's inode block list.
     block_t block;
-    for (inode_index_t i = 0; i < inode.blockCount; i++)
-    {
-        read_block_data(i, block.data);
-        uint16_t offset = 0;
-        for (auto [inodeNumber, name] : block.directoryBlock.entries)
-        {
-            if (strcmp(name, fileName) == 0)
-            {
-                if (offset + i * DIRECTORY_ENTRIES_PER_BLOCK == inode.numFiles - 1)
-                {
-                    inode.numFiles--;
-                    return inodeTable->writeInode(inodeLocation, inode);
+    for (uint32_t i = 0; i < inode.blockCount; i++) {
+        // Read the current directory block.
+        if (!read_block_data(i, block.data)) {
+            std::cerr << "Failed to read directory block " << i << std::endl;
+            continue;
+        }
+        // Search through all entries in this block.
+        for (uint16_t j = 0; j < DIRECTORY_ENTRIES_PER_BLOCK; j++) {
+            // Check if the entry is valid and matches the file name.
+            if (block.directoryBlock.entries[j].inodeNumber != INODE_NULL_VALUE &&
+                strcmp(block.directoryBlock.entries[j].name, fileName) == 0) {
+
+                // Calculate the global index of the found entry.
+                uint32_t entryGlobalIndex = i * DIRECTORY_ENTRIES_PER_BLOCK + j;
+                if (entryGlobalIndex >= inode.numFiles) {
+                    std::cerr << "Entry global index out of bounds" << std::endl;
+                    return false;
                 }
-                // swap with last entry
-                block_t lastBlock;
-                if (i == inode.blockCount - 1)
-                {
-                    lastBlock = block;
+
+                // Log the deletion of the inode by creating a deletion log record.
+                LogRecordPayload payload{};
+                payload.inodeDelete.inodeIndex = block.directoryBlock.entries[j].inodeNumber;
+                if (!logManager->logOperation(LogOpType::LOG_OP_INODE_DELETE, &payload)) {
+                    std::cerr << "Failed to log inode deletion" << std::endl;
+                    return false;
                 }
-                else
-                {
-                    read_block_data(inode.blockCount - 1, lastBlock.data);
+
+                // Prepare a new copy of the directory block (copy-on-write).
+                block_t newBlock;
+                memcpy(newBlock.data, block.data, sizeof(block.data));
+
+                // Determine the last valid directory entry (global index = inode.numFiles - 1).
+                uint32_t lastEntryGlobalIndex = inode.numFiles - 1;
+                uint32_t lastBlockIndex = lastEntryGlobalIndex / DIRECTORY_ENTRIES_PER_BLOCK;
+                uint16_t lastOffset = lastEntryGlobalIndex % DIRECTORY_ENTRIES_PER_BLOCK;
+
+                if (entryGlobalIndex != lastEntryGlobalIndex) {
+                    // If the entry being deleted is not the last one, swap it with the last entry.
+                    if (lastBlockIndex == i) {
+                        // Both entries are in the same block.
+                        newBlock.directoryBlock.entries[j] = newBlock.directoryBlock.entries[lastOffset];
+                    } else {
+                        // The last entry is in a different block. Read that block.
+                        block_t lastBlock;
+                        if (!read_block_data(lastBlockIndex, lastBlock.data)) {
+                            std::cerr << "Failed to read last directory block" << std::endl;
+                            return false;
+                        }
+                        newBlock.directoryBlock.entries[j] = lastBlock.directoryBlock.entries[lastOffset];
+                        // Remove the last entry from its block copy by clearing it.
+                        memset(lastBlock.directoryBlock.entries[lastOffset].name, 0, MAX_FILE_NAME_LENGTH + 1);
+                        lastBlock.directoryBlock.entries[lastOffset].inodeNumber = INODE_NULL_VALUE;
+                        // Perform copy-on-write update for the last block.
+                        block_index_t newLastBlock = blockBitmap->findNextFree();
+                        if (newLastBlock == BLOCK_NULL_VALUE) {
+                            std::cerr << "No free block for copy-on-write update of last block" << std::endl;
+                            return false;
+                        }
+                        if (!blockBitmap->setAllocated(newLastBlock)) {
+                            std::cerr << "Failed to set allocated for new last block" << std::endl;
+                            return false;
+                        }
+                        if (!blockManager->writeBlock(newLastBlock, lastBlock.data)) {
+                            std::cerr << "Failed to write updated last block" << std::endl;
+                            return false;
+                        }
+                        // Update the directory inode pointer for the last block.
+                        inode.directBlocks[lastBlockIndex] = newLastBlock;
+                    }
+                } else {
+                    // If the entry to remove is the last one, simply clear it in the new copy.
+                    memset(newBlock.directoryBlock.entries[j].name, 0, MAX_FILE_NAME_LENGTH + 1);
+                    newBlock.directoryBlock.entries[j].inodeNumber = INODE_NULL_VALUE;
                 }
-                block.directoryBlock.entries[offset] = lastBlock.directoryBlock.entries[(inode.numFiles-1) %
-                    DIRECTORY_ENTRIES_PER_BLOCK];
-                write_block_data(i, block.data);
+
+                // Decrement the total number of directory entries.
                 inode.numFiles--;
-                return inodeTable->writeInode(inodeLocation, inode);
+
+                // Now, perform a copy-on-write update for the directory block where deletion occurred.
+                block_index_t newBlockLocation = blockBitmap->findNextFree();
+                if (newBlockLocation == BLOCK_NULL_VALUE) {
+                    std::cerr << "No free block available for copy-on-write directory update" << std::endl;
+                    return false;
+                }
+                if (!blockBitmap->setAllocated(newBlockLocation)) {
+                    std::cerr << "Failed to set allocated for new directory block" << std::endl;
+                    return false;
+                }
+                if (!blockManager->writeBlock(newBlockLocation, newBlock.data)) {
+                    std::cerr << "Failed to write new directory block" << std::endl;
+                    return false;
+                }
+                // Update the directory inode pointer to reference the new copy.
+                inode.directBlocks[i] = newBlockLocation;
+                // Write the updated inode back to the inode table.
+                if (!inodeTable->writeInode(inodeLocation, inode)) {
+                    std::cerr << "Failed to write updated inode after directory deletion" << std::endl;
+                    return false;
+                }
+                return true;
             }
-            offset++;
         }
     }
+    // If no matching entry is found, return false.
     return false;
 }
 

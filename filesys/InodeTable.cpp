@@ -125,3 +125,21 @@ bool InodeTable::readInode(inode_index_t inodeLocation, inode_t& inode)
     // std::cout << "[read inode] inodeLocation: " << inodeLocation << std::endl;
     return true;
 }
+
+bool InodeTable::readInodeBlock(inode_index_t blockIndex, inode_index_t* outBuffer)
+{
+    // Ensure blockIndex is within the number of inode table blocks.
+    if (blockIndex >= numBlocks) {
+        std::cerr << "readInodeBlock: block index " << blockIndex << " is out of range." << std::endl;
+        return false;
+    }
+    block_t tempBlock;
+    // Read the block from disk. The inode table blocks start at startBlock.
+    if (!blockManager->readBlock(startBlock + blockIndex, tempBlock.data)) {
+        std::cerr << "readInodeBlock: could not read inode table block " << (startBlock + blockIndex) << std::endl;
+        return false;
+    }
+    // Copy the entire array of inodeNumbers from the block into outBuffer.
+    memcpy(outBuffer, tempBlock.inodeTable.inodeNumbers, TABLE_ENTRIES_PER_BLOCK * sizeof(inode_index_t));
+    return true;
+}
