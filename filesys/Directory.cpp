@@ -45,30 +45,109 @@ inode_index_t Directory::getDirectoryEntry(const char* fileName) const
 
 bool Directory::addDirectoryEntry(const char* fileName, inode_index_t fileNum)
 {
+    // Determine the offset in the last directory block based on the current number of entries.
     const uint16_t offset = inode.numFiles % DIRECTORY_ENTRIES_PER_BLOCK;
-    block_t block{};
+
+    // If offset is zero, either there are no entries yet or the previous block is full.
     if (offset == 0)
     {
-        strncpy(block.directoryBlock.entries[0].name, fileName, MAX_FILE_NAME_LENGTH);
-        block.directoryBlock.entries[0].name[MAX_FILE_NAME_LENGTH] = '\0';
-        // std::cout << "verify strcpy: " << block.directoryBlock.entries[0].name << std::endl;
-        block.directoryBlock.entries[0].inodeNumber = fileNum;
+        // --- Copy-on-write branch for a new directory block ---
+        // Allocate a fresh block for this new set of directory entries.
+        block_t newBlock{};
+        // Write the new entry into index 0.
+        strncpy(newBlock.directoryBlock.entries[0].name, fileName, MAX_FILE_NAME_LENGTH);
+        newBlock.directoryBlock.entries[0].name[MAX_FILE_NAME_LENGTH] = '\0';
+        newBlock.directoryBlock.entries[0].inodeNumber = fileNum;
+
+        // Update the directory metadata.
         inode.numFiles++;
-        write_new_block_data(block.data);
-        // std::cout << "Added: " << fileName << std::endl;
-        // std::cout << "New file count: " << inode.numFiles << std::endl;
+
+        // Allocate a new block for this directory block.
+        if (!write_new_block_data(newBlock.data))
+        {
+            std::cerr << "Failed to allocate new directory block for entry: " << fileName << std::endl;
+            return false;
+        }
+
+        // Log the update to the parent's inode (i.e. the directory) so that the new block pointer and updated numFiles are recorded.
+        {
+            LogRecordPayload payload{};
+            payload.inodeUpdate.inodeIndex = getInodeNumber();  // parent's inode number
+            payload.inodeUpdate.inodeLocation = inodeLocation;    // parent's inode location (updated state)
+            if (!logManager->logOperation(LogOpType::LOG_OP_INODE_UPDATE, &payload))
+            {
+                std::cerr << "Failed to log inode update for directory entry addition" << std::endl;
+                return false;
+            }
+        }
+
+        // Write back the updated inode to the inode table.
         return inodeTable->writeInode(inodeLocation, inode);
     }
-    read_block_data(inode.blockCount - 1, block.data);
-    strncpy(block.directoryBlock.entries[offset].name, fileName, MAX_FILE_NAME_LENGTH);
-    block.directoryBlock.entries[offset].name[MAX_FILE_NAME_LENGTH] = '\0';
-    block.directoryBlock.entries[offset].inodeNumber = fileNum;
-    inode.numFiles++;
-    write_block_data(inode.blockCount - 1, block.data);
-    // std::cout << "Added: " << fileName << std::endl;
-    // std::cout << "New file count: " << inode.numFiles << std::endl;
-    return inodeTable->writeInode(inodeLocation, inode);
+    else
+    {
+        // --- Copy-on-write branch for updating an existing directory block ---
+        // Read the last directory block.
+        block_t oldBlock{};
+        if (!read_block_data(inode.blockCount - 1, oldBlock.data))
+        {
+            std::cerr << "Failed to read current directory block" << std::endl;
+            return false;
+        }
+
+        // Make a new copy of that block.
+        block_t newBlock{};
+        memcpy(newBlock.data, oldBlock.data, sizeof(newBlock.data));
+
+        // Write the new directory entry into the new copy at the computed offset.
+        strncpy(newBlock.directoryBlock.entries[offset].name, fileName, MAX_FILE_NAME_LENGTH);
+        newBlock.directoryBlock.entries[offset].name[MAX_FILE_NAME_LENGTH] = '\0';
+        newBlock.directoryBlock.entries[offset].inodeNumber = fileNum;
+
+        // Update the total number of entries.
+        inode.numFiles++;
+
+        // Allocate a new block for the updated directory block.
+        block_index_t newBlockLocation = blockBitmap->findNextFree();
+        if (newBlockLocation == BLOCK_NULL_VALUE)
+        {
+            std::cerr << "No free block available for copy-on-write directory update" << std::endl;
+            return false;
+        }
+        if (!blockBitmap->setAllocated(newBlockLocation))
+        {
+            std::cerr << "Failed to mark new block as allocated" << std::endl;
+            return false;
+        }
+
+        // Write the new block data to disk.
+        if (!blockManager->writeBlock(newBlockLocation, newBlock.data))
+        {
+            std::cerr << "Failed to write updated directory block to disk" << std::endl;
+            return false;
+        }
+
+        // Update the parent's inode to reference the new block.
+        // (We update the pointer for the last block in the directory.)
+        inode.directBlocks[inode.blockCount - 1] = newBlockLocation;
+
+        // Log the parent's inode update so that recovery can replay the change.
+        {
+            LogRecordPayload payload{};
+            payload.inodeUpdate.inodeIndex = getInodeNumber();
+            payload.inodeUpdate.inodeLocation = inodeLocation;
+            if (!logManager->logOperation(LogOpType::LOG_OP_INODE_UPDATE, &payload))
+            {
+                std::cerr << "Failed to log inode update for directory entry addition" << std::endl;
+                return false;
+            }
+        }
+
+        // Write the updated inode back to disk.
+        return inodeTable->writeInode(inodeLocation, inode);
+    }
 }
+
 
 bool Directory::removeDirectoryEntry(const char* fileName) {
     // Iterate over each block in the directory's inode block list.
