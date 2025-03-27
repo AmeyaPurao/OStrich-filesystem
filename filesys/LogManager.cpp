@@ -51,7 +51,7 @@ bool LogManager::logOperation(LogOpType opType, LogRecordPayload *payload) {
     record.opType = opType;
     record.payload = *payload;
 
-    cout<<"Logging operation with sequence number: "<<record.sequenceNumber<<endl;
+    //cout<<"Logging operation with sequence number: "<<record.sequenceNumber<<endl;
 
 
     if (currentLogEntry.numRecords < NUM_LOGRECORDS_PER_LOGENTRY) {
@@ -184,6 +184,7 @@ bool LogManager::createCheckpoint() {
 
     // Update superblock to show new checkpoint.
     temp.superBlock.latestCheckpointIndex++;
+    cout << "checkpointed at latest checkpoint index: " << temp.superBlock.latestCheckpointIndex << endl;
     temp.superBlock.checkpointArr[temp.superBlock.latestCheckpointIndex] = firstCheckpointIndex;
     if (!blockManager->writeBlock(0, (uint8_t *)&temp)) {
         std::cerr << "Could not write superblock" << std::endl;
@@ -200,6 +201,13 @@ bool LogManager::recover() {
     block_t superblockBlock;
     if (!blockManager->readBlock(0, reinterpret_cast<uint8_t *>(&superblockBlock))) {
         std::cout << "Failed to read superblock" << std::endl;
+        return false;
+    }
+
+    //set readonly to false
+    superblockBlock.superBlock.readOnly = false;
+    if (!blockManager->writeBlock(0, reinterpret_cast<uint8_t *>(&superblockBlock))) {
+        std::cout << "Failed to write superblock" << std::endl;
         return false;
     }
 
@@ -295,8 +303,69 @@ bool LogManager::recover() {
 
 
 bool LogManager::mountReadOnlySnapshot(uint32_t checkpointID) {
-    //TODO: Implement this function
-    return false;
+    // read superblock to get checkpoint information and set readonly to true
+    block_t superblockBlock;
+    if (!blockManager->readBlock(0, reinterpret_cast<uint8_t *>(&superblockBlock))) {
+        std::cout << "Failed to read superblock" << std::endl;
+        return false;
+    }
+    superblockBlock.superBlock.readOnly = true;
+    if (!blockManager->writeBlock(0, reinterpret_cast<uint8_t *>(&superblockBlock))) {
+        std::cout << "Failed to write superblock" << std::endl;
+        return false;
+    }
+
+    //clear the inode table
+
+    block_index_t checkpointBlockIndex = superblockBlock.superBlock.checkpointArr[checkpointID];
+    return applyCheckpoint(checkpointBlockIndex);
+}
+
+bool LogManager::applyCheckpoint(block_index_t checkpointBlockIndex) {
+    checkpointBlock_t checkpoint;
+    int64_t checkpointLogRecordIndex = -1; // initialize to an invalid value
+    std::cout << "Latest global sequence number: " << globalSequence << std::endl;
+    std::cout << "Latest checkpoint block index: " << checkpointBlockIndex << std::endl;
+
+    // Traverse the checkpoint chain.
+    while (true) {
+        if (!blockManager->readBlock(checkpointBlockIndex, reinterpret_cast<uint8_t *>(&checkpoint))) {
+            std::cerr << "Failed to read checkpoint block at index " << checkpointBlockIndex << std::endl;
+            return false;
+        }
+        if (checkpoint.magic != CHECKPOINT_MAGIC) {
+            std::cerr << "Invalid checkpoint block at index " << checkpointBlockIndex << std::endl;
+            return false;
+        }
+        // If this block is the header, capture its sequence number.
+        if (checkpoint.isHeader) {
+            checkpointLogRecordIndex = checkpoint.sequenceNumber;
+        }
+        std::cout << "Processing checkpoint block " << checkpointBlockIndex << " with "
+                  << checkpoint.numEntries << " entries." << std::endl;
+
+        // For each entry in the checkpoint block, update the inode table.
+        for (int i = 0; i < checkpoint.numEntries; i++) {
+            if (!inodeTable->setInodeLocation(checkpoint.entries[i].inodeIndex, checkpoint.entries[i].inodeLocation)) {
+                std::cerr << "Failed to set inode location for inode index "
+                          << checkpoint.entries[i].inodeIndex << std::endl;
+                return false;
+            }
+        }
+        // If there is no next checkpoint block, break out of the loop.
+        if (checkpoint.nextCheckpointBlock == NULL_INDEX) {
+            break;
+        }
+        checkpointBlockIndex = checkpoint.nextCheckpointBlock;
+    }
+
+    if (checkpointLogRecordIndex < 0) {
+        std::cerr << "No header found in checkpoint chain. Recovery cannot proceed." << std::endl;
+        return false;
+    }
+
+    std::cout << "Mount complete." << std::endl;
+    return true;
 }
 
 uint64_t LogManager::get_timestamp() {
@@ -304,3 +373,4 @@ uint64_t LogManager::get_timestamp() {
     static uint64_t dummyTime = 0;
     return ++dummyTime;
 }
+

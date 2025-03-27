@@ -16,6 +16,8 @@ class FileSystem {
 public:
     explicit FileSystem(BlockManager *blockManager);
     Directory* getRootDirectory() const;
+    bool createCheckpoint();
+    bool mountReadOnlySnapshot(uint32_t checkpointID);
     // Directory* createDirectory();
     // File* createFile();
     // File* loadFile(inode_index_t inodeNumber);

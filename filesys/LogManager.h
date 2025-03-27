@@ -48,6 +48,8 @@ private:
     uint32_t logStartBlock; // starting block of the dedicated log area
     uint32_t logNumBlocks;  // number of blocks allocated for the log area
 
+    bool applyCheckpoint(block_index_t checkpointBlockIndex);
+
 
     // // Spinlock to protect log operations.
     // SpinLock logLock;

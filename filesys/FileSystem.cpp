@@ -264,7 +264,15 @@ Directory* FileSystem::createRootInode()
     return new Directory(inodeTable, inodeBitmap, blockBitmap, blockManager, logManager, DIRECTORY_MASK);
 }
 
-    // for (block_index_t i = 0; i < NUM_DOUBLE_INDIRECT_BLOCKS; i++)
+bool FileSystem::createCheckpoint() {
+    return logManager->createCheckpoint();
+}
+
+bool FileSystem::mountReadOnlySnapshot(uint32_t checkpointID) {
+    return logManager->mountReadOnlySnapshot(checkpointID);
+}
+
+// for (block_index_t i = 0; i < NUM_DOUBLE_INDIRECT_BLOCKS; i++)
     // {
     //     inode.doubleIndirectBlocks[i] = InodeTable::NULL_VALUE;
     // }

@@ -24,6 +24,9 @@ void runFilesystemSetupTest(BlockManager& blockManager)
     std::cout << "Creating new directory /dir2" << std::endl;
     Directory* dir2 = rootDir->createDirectory("dir2");
 
+    std::cout << "Creating a new checkpoint" << std::endl;
+    fileSystem.createCheckpoint();
+
     std::cout << "Creating new directory /dir2/dir3" << std::endl;
     Directory* dir3 = dir2->createDirectory("dir3");
 
@@ -107,6 +110,9 @@ void displayFilesystem(BlockManager& blockManager)
     FileSystem fileSystem(&blockManager);
     auto* rootDir = fileSystem.getRootDirectory();
     std::cout << "/" << std::endl;
+    displayTree(rootDir, "    /");
+    fileSystem.mountReadOnlySnapshot(2);
+    cout << "After mounting snapshot" << endl;
     displayTree(rootDir, "    /");
     delete rootDir;
 }

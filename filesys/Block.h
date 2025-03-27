@@ -73,6 +73,7 @@ typedef struct superBlock
     uint64_t systemStateSeqNum;
     uint16_t latestCheckpointIndex;
     block_index_t checkpointArr[128];
+    bool readOnly;
 } superBlock_t;
 
 typedef struct bitmapBlock
