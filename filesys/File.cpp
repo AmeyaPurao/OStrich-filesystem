@@ -149,48 +149,82 @@ bool File::isDirectory() const
     return (inode.permissions & DIRECTORY_MASK) != 0;
 }
 
-bool File::write_at(const uint64_t offset, const uint8_t* data, const uint64_t size)
-{
-    if (offset > inode.size)
-    {
+bool File::write_at(const uint64_t offset, const uint8_t* data, const uint64_t size) {
+    if (offset > inode.size) {
         std::cerr << "Offset out of bounds" << std::endl;
         return false;
     }
 
     uint64_t cur = offset;
-    block_t block{};
-    while (cur < offset + size)
-    {
+    block_t block;
+    while (cur < offset + size) {
         block_index_t blockNum = cur / BlockManager::BLOCK_SIZE;
         uint64_t blockOffset = cur % BlockManager::BLOCK_SIZE;
         uint64_t toWrite = std::min(BlockManager::BLOCK_SIZE - blockOffset, size - (cur - offset));
-        if (blockNum >= inode.blockCount)
-        {
-            memcpy(block.data + blockOffset, data + cur - offset, toWrite);
-            if (toWrite < BlockManager::BLOCK_SIZE)
-            {
-                memset(block.data + blockOffset + toWrite, 0, BlockManager::BLOCK_SIZE - toWrite);
-            }
-            if (!write_new_block_data(block.data))
-            {
+
+        // Case 1: Updating an already allocated block (copy-on-write update)
+        if (blockNum < inode.blockCount) {
+            // Read the existing block into our temporary block.
+            if (!read_block_data(blockNum, block.data)) {
+                std::cerr << "Failed to read block " << blockNum << std::endl;
                 return false;
             }
-            continue;
+            // Allocate a new block for the updated copy.
+            block_index_t newBlock = blockBitmap->findNextFree();
+            if (newBlock == BLOCK_NULL_VALUE) {
+                std::cerr << "No free block available for copy-on-write update" << std::endl;
+                return false;
+            }
+            if (!blockBitmap->setAllocated(newBlock)) {
+                std::cerr << "Failed to mark new block as allocated" << std::endl;
+                return false;
+            }
+            // Copy the old block contents (already in block.data) and apply modifications.
+            memcpy(block.data + blockOffset, data + (cur - offset), toWrite);
+            // Write the modified block to the newly allocated block.
+            if (!blockManager->writeBlock(newBlock, block.data)) {
+                std::cerr << "Failed to write new block for updated data" << std::endl;
+                return false;
+            }
+            // Update the inode pointer for this block.
+            inode.directBlocks[blockNum] = newBlock;
         }
-        if (!read_block_data(blockNum, block.data))
-        {
-            return false;
-        }
-        memcpy(block.data + blockOffset, data + cur - offset, toWrite);
-        if (!write_block_data(blockNum, block.data))
-        {
-            return false;
+            // Case 2: Writing to a new block that has not been allocated yet.
+        else {
+            // Zero out our temporary block.
+            memset(block.data, 0, BlockManager::BLOCK_SIZE);
+            // Copy the new data into the block at the correct offset.
+            memcpy(block.data + blockOffset, data + (cur - offset), toWrite);
+            // Allocate and write this block using our helper.
+            if (!write_new_block_data(block.data)) {
+                std::cerr << "Failed to allocate and write new block for file extension" << std::endl;
+                return false;
+            }
         }
         cur += toWrite;
     }
+
+    // Update the file size if necessary.
     inode.size = std::max(offset + size, inode.size);
-    return inodeTable->writeInode(inodeLocation, inode);
+
+    // Write the updated inode back to disk.
+    if (!inodeTable->writeInode(inodeLocation, inode)) {
+        std::cerr << "Failed to write updated inode" << std::endl;
+        return false;
+    }
+
+    // Log a single inode update record for the file.
+    LogRecordPayload payload{};
+    payload.inodeUpdate.inodeIndex = getInodeNumber();  // File's inode index.
+    payload.inodeUpdate.inodeLocation = inodeLocation;    // Current inode location.
+    if (!logManager->logOperation(LogOpType::LOG_OP_INODE_UPDATE, &payload)) {
+        std::cerr << "Failed to log inode update for file write" << std::endl;
+        return false;
+    }
+
+    return true;
 }
+
 
 bool File::read_at(const uint64_t offset, uint8_t* data, const uint64_t size) const
 {

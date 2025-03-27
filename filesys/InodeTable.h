@@ -4,6 +4,7 @@
 
 #ifndef INODETABLE_H
 #define INODETABLE_H
+#include <cstring>
 #include "Block.h"
 #include "../interface/BlockManager.h"
 
