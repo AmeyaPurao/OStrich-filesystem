@@ -4,7 +4,8 @@
 
 #include "FileSystem.h"
 
-#include <string.h>
+#include "cstdio"
+#include "cassert"
 
 static const block_index_t LOG_AREA_SIZE = 64; // Reserve 64 blocks for the log area, need to adjust this later
 static const uint32_t NUM_CHECKPOINTS = 128;
@@ -17,19 +18,18 @@ FileSystem::FileSystem(BlockManager* blockManager): blockManager(blockManager), 
     this->superBlock = &superBlockWrapper.superBlock;
     if (!blockManager->readBlock(0, superBlockWrapper.data))
     {
-        std::cerr << "Could not read superblock" << std::endl;
-        throw std::runtime_error("Could not read superblock");
+        printf("Could not read superblock\n");
+        assert(0);
     }
 
     if (superBlock->magic != MAGIC_NUMBER)
     {
-         std::cout << "Creating new filesystem; found magic: " << superBlock->magic << " | expected: " << MAGIC_NUMBER <<
-             std::endl;
+        printf("Creating new filesystem; found magic: %lu | expected : %lu\n", superBlock->magic, MAGIC_NUMBER);
         createFilesystem();
     }
     else
     {
-        std::cout << "Existing filesystem detected" << std::endl;
+        printf("Existing filesystem detected\n");
     }
     loadFilesystem();
 }
@@ -64,8 +64,8 @@ void FileSystem::createFilesystem()
     // Reserve LOG_AREA_SIZE blocks for logging.
     if (remainingBlocks < superBlock->dataBlockBitmapSize + LOG_AREA_SIZE)
     {
-        std::cerr << "Not enough blocks remaining for data and log areas." << std::endl;
-        throw std::runtime_error("Insufficient space for log area");
+        printf("Not enough blocks remaining for data and log areas.\n");
+        assert(0);
     }
     superBlock->dataBlockCount = remainingBlocks - superBlock->dataBlockBitmapSize - LOG_AREA_SIZE;
     superBlock->freeDataBlockCount = superBlock->dataBlockCount;
@@ -98,8 +98,8 @@ void FileSystem::createFilesystem()
     {
         if (!blockManager->writeBlock(superBlock->dataBlockBitmap + i, zeroBlock.data))
         {
-            std::cerr << "Could not write block bitmap" << std::endl;
-            throw std::runtime_error("Could not write block bitmap");
+            printf("Could not write block bitmap\n");
+            assert(0);
         }
     }
 
@@ -107,8 +107,8 @@ void FileSystem::createFilesystem()
     {
         if (!blockManager->writeBlock(superBlock->inodeBitmap + i, zeroBlock.data))
         {
-            std::cerr << "Could not write inode bitmap" << std::endl;
-            throw std::runtime_error("Could not write inode bitmap");
+            printf("Could not write inode bitmap\n");
+            assert(0);
         }
     }
 
@@ -116,14 +116,14 @@ void FileSystem::createFilesystem()
 
     if (!blockManager->writeBlock(0, superBlockWrapper.data))
     {
-        std::cerr << "Could not write superblock" << std::endl;
-        throw std::runtime_error("Could not write superblock");
+        printf("Could not write superblock\n");
+        assert(0);
     }
 }
 
 void FileSystem::loadFilesystem()
 {
-    // std::cout << "Loading filesystem" << std::endl;
+    // printf("Loading filesystem\n");
     // std::cout << "Size: " << superBlock->size << std::endl;
     // std::cout << "Inode region start: " << superBlock->inodeRegionStart << std::endl;
     // std::cout << "Data block region start: " << superBlock->dataBlockRegionStart << std::endl;
@@ -150,7 +150,7 @@ bool FileSystem::readInode(inode_index_t inodeLocation, inode_t& inode)
     block_t tempBlock;
     if (!blockManager->readBlock(inodeBlock, tempBlock.data))
     {
-        std::cerr << "Could not read inode block" << std::endl;
+        printf("Could not read inode block\n");
         return false;
     }
     inode = tempBlock.inodeBlock.inodes[inodeLocation % INODES_PER_BLOCK];
@@ -163,13 +163,13 @@ bool FileSystem::writeInode(inode_index_t inodeLocation, inode_t& inode)
     block_t tempBlock;
     if (!blockManager->readBlock(inodeBlock, tempBlock.data))
     {
-        std::cerr << "Could not read inode block" << std::endl;
+        printf("Could not read inode block\n");
         return false;
     }
     tempBlock.inodeBlock.inodes[inodeLocation % INODES_PER_BLOCK] = inode;
     if (!blockManager->writeBlock(inodeBlock, tempBlock.data))
     {
-        std::cerr << "Could not write inode block" << std::endl;
+        printf("Could not write inode block\n");
         return false;
     }
     return true;
@@ -181,19 +181,19 @@ bool FileSystem::writeInode(inode_index_t inodeLocation, inode_t& inode)
 //     inode_index_t baseDirLocation = inodeTable->getInodeLocation(baseDirectory);
 //     if (baseDirLocation == InodeTable::NULL_VALUE)
 //     {
-//         std::cerr << "Could not get inode location" << std::endl;
+//         printf("Could not get inode location\n");
 //         return false;
 //     }
 //     inode_t baseDirInode;
 //     if (!readInode(baseDirLocation, baseDirInode))
 //     {
-//         std::cerr << "Could not read inode" << std::endl;
+//         printf("Could not read inode\n");
 //         return false;
 //     }
 //     block_index_t blockNum = baseDirInode.numFiles / DIRECTORY_ENTRIES_PER_BLOCK;
 //     if (blockNum >= NUM_DIRECT_BLOCKS)
 //     {
-//         std::cerr << "Directory too large" << std::endl;
+//         printf("Directory too large\n");
 //         return false;
 //     }
 //     if (blockNum >= baseDirInode.blockCount)
@@ -201,7 +201,7 @@ bool FileSystem::writeInode(inode_index_t inodeLocation, inode_t& inode)
 //         block_index_t newBlock = blockBitmap->findNextFree();
 //         if (!blockBitmap->setAllocated(newBlock))
 //         {
-//             std::cerr << "Could not set block bitmap" << std::endl;
+//             printf("Could not set block bitmap\n");
 //             return false;
 //         }
 //         baseDirInode.directBlocks[blockNum] = newBlock;
@@ -210,7 +210,7 @@ bool FileSystem::writeInode(inode_index_t inodeLocation, inode_t& inode)
 //     block_t tempBlock;
 //     if (!blockManager->readBlock(baseDirInode.directBlocks[blockNum], tempBlock.data))
 //     {
-//         std::cerr << "Could not read block" << std::endl;
+//         printf("Could not read block\n");
 //         return false;
 //     }
 //     uint16_t offset = baseDirInode.numFiles % DIRECTORY_ENTRIES_PER_BLOCK;
@@ -219,13 +219,13 @@ bool FileSystem::writeInode(inode_index_t inodeLocation, inode_t& inode)
 //     tempBlock.directoryBlock.entries[offset].name[MAX_FILE_NAME_LENGTH] = '\0';
 //     if (!blockManager->writeBlock(baseDirInode.directBlocks[blockNum], tempBlock.data))
 //     {
-//         std::cerr << "Could not write block" << std::endl;
+//         printf("Could not write block\n");
 //         return false;
 //     }
 //     baseDirInode.numFiles++;
 //     if (!writeInode(baseDirLocation, baseDirInode))
 //     {
-//         std::cerr << "Could not write inode" << std::endl;
+//         printf("Could not write inode\n");
 //         return false;
 //     }
 //     return true;
@@ -236,7 +236,7 @@ bool FileSystem::writeInode(inode_index_t inodeLocation, inode_t& inode)
 //     const inode_index_t inodeLocation = inodeBitmap->findNextFree();
 //     if (!inodeBitmap->setAllocated(inodeLocation))
 //     {
-//         std::cerr << "Could not set inode bit" << std::endl;
+//         printf("Could not set inode bit\n");
 //         return NULL_INDEX;
 //     }
 //
@@ -260,7 +260,7 @@ bool FileSystem::writeInode(inode_index_t inodeLocation, inode_t& inode)
 // }
 Directory* FileSystem::createRootInode()
 {
-     std::cout << "Creating root inode" << std::endl;
+    printf("Creating root inode\n");
     return new Directory(inodeTable, inodeBitmap, blockBitmap, blockManager, logManager, DIRECTORY_MASK);
 }
 
@@ -274,7 +274,7 @@ Directory* FileSystem::createRootInode()
     // const inode_index_t inodeNum = inodeTable->getFreeInodeNumber();
     // if (inodeNum == InodeTable::NULL_VALUE)
     // {
-    //     std::cerr << "Could not get free inode number" << std::endl;
+    //     printf("Could not get free inode number\n");
     //     return InodeTable::NULL_VALUE;
     // }
     // LogRecordPayload payload{};
@@ -283,7 +283,7 @@ Directory* FileSystem::createRootInode()
     // logManager->logOperation(LogOpType::LOG_OP_INODE_ADD, &payload);
     // if (!inodeTable->setInodeLocation(inodeNum, inodeLocation))
     // {
-    //     std::cerr << "Could not set inode location" << std::endl;
+    //     printf("Could not set inode location\n");
     //     return InodeTable::NULL_VALUE;
     // }
 
@@ -304,20 +304,20 @@ Directory* FileSystem::createRootInode()
 //     const inode_index_t inodeLocation = inodeTable->getInodeLocation(inodeNumber);
 //     if(inodeLocation == INODE_NULL_VALUE)
 //     {
-//         // std::cout << "inode not found" << std::endl;
+//         // printf("inode not found\n");
 //         return nullptr;
 //     }
 //     if (!inodeTable->readInode(inodeLocation, tmp))
 //     {
-//         // std::cout << "Could not read inode" << std::endl;
+//         // printf("Could not read inode\n");
 //         return nullptr;
 //     }
 //     if ((tmp.permissions & DIRECTORY_MASK) != 0)
 //     {
-//         // std::cout << "inode is directory" << std::endl;
+//         // printf("inode is directory\n");
 //         return new Directory(inodeNumber, inodeTable, inodeBitmap, blockBitmap, blockManager);
 //     }
-//     // std::cout << "inode is file" << std::endl;
+//     // printf("inode is file\n");
 //     // std::cout << "permissions: " << tmp.permissions << std::endl;
 //     return new File(inodeNumber, inodeTable, inodeBitmap, blockBitmap, blockManager);
 // }

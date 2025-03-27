@@ -1,3 +1,4 @@
+#ifdef ON_LINUX
 #include "FakeDiskDriver.h"
 #include <iostream>
 #include <thread>
@@ -201,3 +202,4 @@ vector<FakeDiskDriver::Partition> FakeDiskDriver::listPartitions() const
     lock_guard<mutex> lock(partitionMutex);
     return partitions;
 }
+#endif

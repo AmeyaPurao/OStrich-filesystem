@@ -4,7 +4,10 @@
 
 #include "File.h"
 
-#include <string.h>
+#include "cstring"
+#include "cstdio"
+#include "algorithm"
+#include "cassert"
 
 #include "BitmapManager.h"
 #include "InodeTable.h"
@@ -17,8 +20,8 @@ File::File(InodeTable* inodeTable, BitmapManager* inodeBitmap, BitmapManager* bl
     inodeLocation = inodeBitmap->findNextFree();
     if (!inodeBitmap->setAllocated(inodeLocation))
     {
-        std::cerr << "Could not set inode bit" << std::endl;
-        throw std::runtime_error("Could not set inode bit");
+        printf("Could not set inode bit\n");
+        assert(0);
     }
     inode.size = 0;
     inode.blockCount = 0;
@@ -44,15 +47,15 @@ File::File(InodeTable* inodeTable, BitmapManager* inodeBitmap, BitmapManager* bl
 
     if (!inodeTable->writeInode(inodeLocation, inode))
     {
-        std::cerr << "Could not write inode" << std::endl;
-        throw std::runtime_error("Could not write inode");
+        printf("Could not write inode\n");
+        assert(0);
     }
 
     inodeNumber = inodeTable->getFreeInodeNumber();
     if (inodeNumber == INODE_NULL_VALUE)
     {
-        std::cerr << "Could not get free inode number" << std::endl;
-        throw std::runtime_error("Could not get free inode number");
+        printf("Could not get free inode number\n");
+        assert(0);
     }
     LogRecordPayload payload{};
     payload.inodeAdd.inodeIndex = inodeNumber;
@@ -60,8 +63,8 @@ File::File(InodeTable* inodeTable, BitmapManager* inodeBitmap, BitmapManager* bl
     logManager->logOperation(LogOpType::LOG_OP_INODE_ADD, &payload);
     if (!inodeTable->setInodeLocation(inodeNumber, inodeLocation))
     {
-        std::cerr << "Could not set inode location" << std::endl;
-        throw std::runtime_error("Could not set inode location");
+        printf("Could not set inode location\n");
+        assert(0);
     }
 
     // std::cout << "Creating file with permissions: " << permissions << " with number " << inodeNumber << " at " <<
@@ -75,11 +78,13 @@ File::File(inode_index_t inodeNumber, InodeTable* inodeTable, BitmapManager* ino
     inodeLocation = inodeTable->getInodeLocation(inodeNumber);
     if (inodeLocation == INODE_NULL_VALUE)
     {
-        throw std::runtime_error("Inode not found");
+        printf("Inode not found\n");
+        assert(0);
     }
     if (!inodeTable->readInode(inodeLocation, inode))
     {
-        throw std::runtime_error("Could not read inode");
+        printf("Could not read inode\n");
+        assert(0);
     }
 }
 
@@ -109,7 +114,8 @@ block_index_t File::getBlockLocation(const block_index_t blockNum) const
     {
         return inode.directBlocks[blockNum];
     }
-    throw std::runtime_error("Indirect blocks not implemented");
+    printf("Indirect blocks not implemented");
+    assert(0);
 }
 
 bool File::write_block_data(const block_index_t blockNum, const uint8_t* data)
@@ -134,7 +140,8 @@ bool File::write_new_block_data(const uint8_t* data)
     }
     else
     {
-        throw std::runtime_error("Indirect blocks not implemented");
+        printf("Indirect blocks not implemented\n");
+        assert(0);
     }
     inode.blockCount++;
     if (!blockManager->writeBlock(newBlock, data))
@@ -153,7 +160,7 @@ bool File::write_at(const uint64_t offset, const uint8_t* data, const uint64_t s
 {
     if (offset > inode.size)
     {
-        std::cerr << "Offset out of bounds" << std::endl;
+        printf("Offset out of bounds\n");
         return false;
     }
 
@@ -196,7 +203,7 @@ bool File::read_at(const uint64_t offset, uint8_t* data, const uint64_t size) co
 {
     if (offset + size > inode.size)
     {
-        std::cerr << "Offset out of bounds" << std::endl;
+        printf("Offset out of bounds\n");
         return false;
     }
     uint64_t cur = offset;

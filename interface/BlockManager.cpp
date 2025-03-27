@@ -1,15 +1,15 @@
 #include "BlockManager.h"
+#include "cstdio"
 
-BlockManager::BlockManager(FakeDiskDriver& disk, const FakeDiskDriver::Partition& partition)
+BlockManager::BlockManager(CurrentDiskDriver& disk, const CurrentDiskDriver::Partition& partition)
     : disk(disk), partition(partition)
 {
     // Calculate the number of sectors per block.
-    sectorsPerBlock = BLOCK_SIZE / FakeDiskDriver::SECTOR_SIZE;
-    if (BLOCK_SIZE % FakeDiskDriver::SECTOR_SIZE != 0)
+    sectorsPerBlock = BLOCK_SIZE / CurrentDiskDriver::SECTOR_SIZE;
+    if (BLOCK_SIZE % CurrentDiskDriver::SECTOR_SIZE != 0)
     {
-        std::cerr << "Error: BLOCK_SIZE (" << BLOCK_SIZE
-            << ") is not a multiple of the sector size ("
-            << FakeDiskDriver::SECTOR_SIZE << ").\n";
+        printf("Error: BLOCK_SIZE (%zu) is not a multiple of the sector size (%zu).\n",
+            BLOCK_SIZE, CurrentDiskDriver::SECTOR_SIZE);
     }
 }
 
@@ -20,16 +20,16 @@ bool BlockManager::readBlock(const size_t blockIndex, uint8_t* buffer)
     size_t startSector = partition.startSector + blockIndex * sectorsPerBlock;
     if (blockIndex * sectorsPerBlock >= partition.sectorCount)
     {
-        std::cerr << "readBlock: block index " << blockIndex << " is out of partition range.\n";
+        printf("readBlock: block index %zu is out of partition range.\n", blockIndex);
         return false;
     }
 
     // block.resize(BLOCK_SIZE);
     for (size_t i = 0; i < sectorsPerBlock; i++)
     {
-        if (!disk.readSector(startSector + i, buffer + i * FakeDiskDriver::SECTOR_SIZE))
+        if (!disk.readSector(startSector + i, buffer + i * CurrentDiskDriver::SECTOR_SIZE))
         {
-            std::cerr << "readBlock: failed to read sector " << (startSector + i) << "\n";
+            printf("readBlock: failed to read sector %zu.\n", (startSector + i));
             return false;
         }
     }
@@ -48,15 +48,15 @@ bool BlockManager::writeBlock(const size_t blockIndex, const uint8_t* buffer)
     size_t startSector = partition.startSector + blockIndex * sectorsPerBlock;
     if (blockIndex * sectorsPerBlock >= partition.sectorCount)
     {
-        std::cerr << "writeBlock: block index " << blockIndex << " is out of partition range.\n";
+        printf("writeBlock: block index %zu is out of partition range.\n", blockIndex);
         return false;
     }
 
     for (size_t i = 0; i < sectorsPerBlock; i++)
     {
-        if (!disk.writeSector(startSector + i, buffer + i * FakeDiskDriver::SECTOR_SIZE))
+        if (!disk.writeSector(startSector + i, buffer + i * CurrentDiskDriver::SECTOR_SIZE))
         {
-            std::cerr << "writeBlock: failed to write sector " << (startSector + i) << "\n";
+            printf("writeBlock: failed to write sector %zu.\n", (startSector + i));
             return false;
         }
     }

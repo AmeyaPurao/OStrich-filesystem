@@ -90,15 +90,18 @@ public:
      *
      * @return A vector containing all partitions.
      */
-    vector<Partition> listPartitions() const;
+    std::vector<Partition> listPartitions() const;
 
 private:
     string diskFilename;
     size_t totalSectors;
+
+    #ifdef ON_LINUX
     fstream diskFile;
+    #endif
 
     // In–memory partition table.
-    vector<Partition> partitions;
+    std::vector<Partition> partitions;
 
     // Mutex to protect disk I/O (the file stream isn’t thread–safe).
     mutable mutex diskMutex;

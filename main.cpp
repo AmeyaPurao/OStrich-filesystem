@@ -1,4 +1,6 @@
-#include <cstring>
+#include "cstring"
+#include "cstdio"
+#include "vector"
 
 #include "interface/BlockManager.h"
 #include "interface/FakeDiskDriver.h"
@@ -8,35 +10,35 @@
 void runFilesystemSetupTest(BlockManager& blockManager)
 {
     FileSystem fileSystem(&blockManager);
-    std::cout << "Loading root directory" << std::endl;
+    printf("Loading root directory\n");
     auto* rootDir = fileSystem.getRootDirectory();
 
-    std::cout << "Creating new directory /dir1" << std::endl;
+    printf("Creating new directory /dir1\n");
     Directory* dir1 = rootDir->createDirectory("dir1");
 
-    std::cout << "Creating new file /dir1/file1" << std::endl;
+    printf("Creating new file /dir1/file1\n");
     File* file1 = dir1->createFile("file1");
 
-    std::cout << "Writing data to file1" << std::endl;
+    printf("Writing data to file1\n");
     const char* testData = "testing!";
     file1->write_at(0, (uint8_t*)testData, strlen(testData) + 1);
 
-    std::cout << "Creating new directory /dir2" << std::endl;
+    printf("Creating new directory /dir2\n");
     Directory* dir2 = rootDir->createDirectory("dir2");
 
-    std::cout << "Creating new directory /dir2/dir3" << std::endl;
+    printf("Creating new directory /dir2/dir3\n");
     Directory* dir3 = dir2->createDirectory("dir3");
 
-    std::cout << "Creating new file /dir2/dir3/file2" << std::endl;
+    printf("Creating new file /dir2/dir3/file2\n");
     File* file2 = dir3->createFile("file2");
 
-    std::cout << "Creating new file /dir2/tmpfile" << std::endl;
+    printf("Creating new file /dir2/tmpfile\n");
     File* tmpFile = dir2->createFile("tmpfile");
 
-    std::cout << "Creating new file /dir2/largefile" << std::endl;
+    printf("Creating new file /dir2/largefile\n");
     File* largeFile = dir2->createFile("largefile");
 
-    std::cout << "Writing >BLOCK_SIZE bytes to largefile" << std::endl;
+    printf("Writing >BLOCK_SIZE bytes to largefile\n");
     constexpr uint64_t BUFFER_SIZE = BlockManager::BLOCK_SIZE + 100;
     char* buffer = new char[BUFFER_SIZE];
     for (uint64_t i = 0; i < BUFFER_SIZE - 1; i++)
@@ -47,11 +49,11 @@ void runFilesystemSetupTest(BlockManager& blockManager)
     largeFile->write_at(0, (uint8_t*)buffer, BUFFER_SIZE);
     delete[] buffer;
 
-    std::cout << "Changing data in largefile" << std::endl;
+    printf("Changing data in largefile\n");
     auto newTestData = " - new data! - ";
     largeFile->write_at(10, (uint8_t*)newTestData, strlen(newTestData)); // don't copy null terminator
 
-    std::cout << "Deleting /dir2/tmpfile" << std::endl;
+    printf("Deleting /dir2/tmpfile\n");
     dir2->removeDirectoryEntry("tmpfile");
     delete tmpFile;
 
@@ -66,18 +68,29 @@ void runFilesystemSetupTest(BlockManager& blockManager)
     delete rootDir;
 }
 
-void displayTree(const Directory* dir, const string& curPath)
+
+std::vector<char*> pathStrings;
+
+void displayTree(const Directory* dir, const char* curPath)
 {
-    // std::cout << "Listing entries" << std::endl;
-    const std::vector<char*> entries = dir->listDirectoryEntries();
+    // printf("Listing entries\n");
+    std::vector<char*> entries = dir->listDirectoryEntries();
     // std::cout << "Num entries: " << entries.size() << std::endl;
-    for (const auto entry : entries)
+    for (int i = 0; i < entries.size(); i++)
     {
+        char* entry = entries[i];
         auto* file = dir->getFile(entry);
         if (file->isDirectory())
         {
-            std::cout << curPath << entry << std::endl;
-            displayTree(dynamic_cast<Directory*>(file), "    " + curPath + entry + "/");
+            printf("%s%s\n", curPath, entry);
+            // allocate c string on heap
+            char* newPath = new char[strlen(curPath) + strlen(entry) + 6];
+            pathStrings.push_back(newPath);
+            strcpy(newPath, "    ");
+            strcat(newPath, curPath);
+            strcat(newPath, entry);
+            strcat(newPath, "/");
+            displayTree(dynamic_cast<Directory*>(file), newPath);
         }
         else
         {
@@ -86,28 +99,32 @@ void displayTree(const Directory* dir, const string& curPath)
                 char* data = new char[file->getSize()];
                 file->read_at(0, (uint8_t*)data, file->getSize());
                 data[file->getSize() - 1] = '\0';
-                std::cout << curPath << entry << " (" << data << ")" << std::endl;
+                printf(")\n");
             }
             else
             {
-                std::cout << curPath << entry << " (empty file)" << std::endl;
+                printf(" (empty file)\n");
             }
         }
         delete file;
     }
     // delete all entries
-    for (auto entry : entries)
+    for (int i = 0; i < entries.size(); i++)
     {
-        delete[] entry;
-    }
+        delete[] entries[i];
+    } 
 }
 
 void displayFilesystem(BlockManager& blockManager)
 {
     FileSystem fileSystem(&blockManager);
     auto* rootDir = fileSystem.getRootDirectory();
-    std::cout << "/" << std::endl;
+    printf("/\n");
     displayTree(rootDir, "    /");
+    for (int i = 0; i < pathStrings.size(); i++)
+    {
+        delete[] pathStrings[i];
+    }
     delete rootDir;
 }
 
@@ -116,17 +133,17 @@ int main()
     FakeDiskDriver disk("OStrich_Hard_Drive", 8192);
     if (!disk.createPartition(0, 8192, "ext4"))
     {
-        std::cerr << "Error: Failed to create partition" << std::endl;
+        printf("Error: Failed to create partition\n");
         return 1;
     }
     BlockManager block_manager(disk, disk.listPartitions()[0]);
     block_t emptyBlock{};
     block_manager.writeBlock(0, emptyBlock.data); // write empty superblock to force creation of new fs
 
-    std::cout << "Running filesystem setup test" << std::endl;
+    printf("Running filesystem setup test\n");
     runFilesystemSetupTest(block_manager);
 
-    std::cout << std::endl << std::endl << "Displaying filesystem" << std::endl;
+    printf("Displaying filesystem\n");
     displayFilesystem(block_manager);
 
     return 0;

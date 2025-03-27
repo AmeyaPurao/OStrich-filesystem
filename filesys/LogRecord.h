@@ -5,7 +5,7 @@
 #ifndef LOGRECORD_H
 #define LOGRECORD_H
 
-#include <cstdint>
+#include "cstdint"
 
 constexpr uint16_t NUM_LOGRECORDS_PER_LOGENTRY = 127;
 

@@ -6,8 +6,7 @@
 #include "../interface/BlockManager.h"
 #include "BitmapManager.h"
 // #include "SpinLock.h"     // Will need to use spinlock from kernel team
-#include <stdint.h>
-#include <string.h>
+#include "cstdint"
 
 #include "InodeTable.h"
 

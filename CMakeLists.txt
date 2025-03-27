@@ -3,6 +3,11 @@ project(MockFilesys)
 
 set(CMAKE_CXX_STANDARD 17)
 
+# define ON_LINUX to use the FakeDiskDriver
+# Filesystem files are separately recompiled by kernel right now to test integration.
+# Later, we probably want to compile the filesystem separately and link it with the kernel.
+add_compile_definitions(ON_LINUX) 
+
 #Replaced main.cpp with test class, change back later as needed
 add_executable(MockFilesys main.cpp
         interface/FakeDiskDriver.h

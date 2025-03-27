@@ -1,12 +1,24 @@
 #ifndef BLOCK_MANAGER_H
 #define BLOCK_MANAGER_H
 
+#ifdef ON_LINUX
 #include "FakeDiskDriver.h"
-#include <vector>
-#include <cstdint>
-#include <mutex>
-#include <iostream>
-#include <algorithm>
+#else
+#include "RealDiskDriver.h"
+#endif
+#include "vector"
+#include "cstdint"
+#include "mutex"
+// #include "algorithm"
+
+// Doing this instead of an AbstractClass so we don't have to compile the FakeDiskDriver.
+// I didn't wanna bother with makefile stuff bc its annoying so im doing it this way -Arvind.
+#ifdef ON_LINUX
+using CurrentDiskDriver = FakeDiskDriver;
+#else
+using CurrentDiskDriver = RealDiskDriver;
+#endif
+
 
 class BlockManager
 {
@@ -20,7 +32,7 @@ public:
      * @param disk       Reference to the underlying FakeDiskDriver.
      * @param partition  The partition (a slice of the disk) that this BlockManager will manage.
      */
-    BlockManager(FakeDiskDriver& disk, const FakeDiskDriver::Partition& partition);
+    BlockManager(CurrentDiskDriver& disk, const CurrentDiskDriver::Partition& partition);
 
     /**
      * Reads a file system block (4096 bytes) from the partition.
@@ -44,8 +56,8 @@ public:
     }
 
 private:
-    FakeDiskDriver& disk;
-    FakeDiskDriver::Partition partition;
+    CurrentDiskDriver& disk;
+    CurrentDiskDriver::Partition partition;
     size_t sectorsPerBlock; // Number of 512-byte sectors per 4096-byte block.
     mutable std::mutex blockMutex; // Protects BlockManager state and operations.
 };
