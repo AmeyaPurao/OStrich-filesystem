@@ -91,6 +91,7 @@ inode_index_t InodeTable::getInodeLocation(inode_index_t inodeNumber)
     }
     if (snapshotMode) {
         // Return from the native array.
+        cout << "Got snapshot Inode mapping: " << inodeNumber << " to " << snapshotMapping[inodeNumber] << endl;
         return snapshotMapping[inodeNumber];
     }
     inode_index_t blockNum = inodeNumber / TABLE_ENTRIES_PER_BLOCK;
@@ -159,7 +160,7 @@ bool InodeTable::readInodeBlock(inode_index_t blockIndex, inode_index_t* outBuff
 InodeTable* InodeTable::createSnapshotFromCheckpoint(block_index_t checkpointBlockIndex, InodeTable* liveTable)
 {
     // Create a new InodeTable instance using the live table's parameters.
-    InodeTable* snapshot = new InodeTable(liveTable->startBlock, liveTable->numBlocks, liveTable->size,
+    auto* snapshot = new InodeTable(liveTable->startBlock, liveTable->numBlocks, liveTable->size,
                                            liveTable->inodeRegionStart, liveTable->blockManager);
     // Set snapshot mode and allocate the native array.
     snapshot->snapshotMode = true;
@@ -168,26 +169,9 @@ InodeTable* InodeTable::createSnapshotFromCheckpoint(block_index_t checkpointBlo
         snapshot->snapshotMapping[i] = INODE_NULL_VALUE;
     }
 
-    // Initialize the in-memory mapping by reading the live inode table from disk.
     inode_index_t totalInodes = liveTable->size;
-    inode_index_t entriesPerBlock = TABLE_ENTRIES_PER_BLOCK;
-    inode_index_t totalBlocks = (totalInodes + entriesPerBlock - 1) / entriesPerBlock;
-    block_t tempBlock;
-    for (inode_index_t blockIdx = 0; blockIdx < totalBlocks; blockIdx++) {
-        if (!liveTable->blockManager->readBlock(liveTable->startBlock + blockIdx, tempBlock.data)) {
-            std::cerr << "Snapshot: Failed to read inode table block " << (liveTable->startBlock + blockIdx) << std::endl;
-            delete snapshot;
-            return nullptr;
-        }
-        for (inode_index_t j = 0; j < entriesPerBlock; j++) {
-            inode_index_t globalInodeIndex = blockIdx * entriesPerBlock + j;
-            if (globalInodeIndex >= totalInodes)
-                break;
-            snapshot->snapshotMapping[globalInodeIndex] = tempBlock.inodeTable.inodeNumbers[j];
-        }
-    }
 
-    // Traverse the checkpoint chain to override the mapping entries.
+    // Traverse the checkpoint chain to set the mapping entries.
     checkpointBlock_t checkpoint;
     block_index_t currentCp = checkpointBlockIndex;
     while (true) {
@@ -205,6 +189,7 @@ InodeTable* InodeTable::createSnapshotFromCheckpoint(block_index_t checkpointBlo
             inode_index_t idx = checkpoint.entries[i].inodeIndex;
             inode_index_t cpLocation = checkpoint.entries[i].inodeLocation;
             if (idx < totalInodes) {
+                cout << "Setting snapshot mapping for inode index " << idx << " to location " << cpLocation << endl;
                 snapshot->snapshotMapping[idx] = cpLocation;
             }
         }

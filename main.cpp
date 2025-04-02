@@ -120,6 +120,7 @@ void displayFilesystem(BlockManager& blockManager)
     auto* snapRoot = snapshotFS->getRootDirectory();
     std::cout << "\nSnapshot filesystem (checkpoint 2):" << std::endl;
     displayTree(snapRoot, "    /");
+    cout << "Unmounting snapshot filesystem..." << endl;
     delete snapRoot;
     delete snapshotFS;
     delete rootDir;
