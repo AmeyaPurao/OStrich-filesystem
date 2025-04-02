@@ -25,12 +25,28 @@ public:
     // outBuffer must be able to hold TABLE_ENTRIES_PER_BLOCK entries.
     bool readInodeBlock(inode_index_t blockIndex, inode_index_t* outBuffer);
 
+    // Create a snapshot copy of the inode table state from a checkpoint chain.
+    // checkpointBlockIndex is the block index of the head checkpoint block.
+    // Returns a new InodeTable instance in snapshot mode.
+    static InodeTable* createSnapshotFromCheckpoint(block_index_t checkpointBlockIndex, InodeTable* liveTable);
+
+    ~InodeTable() {
+        if (snapshotMode && snapshotMapping != nullptr) {
+            delete[] snapshotMapping;
+            snapshotMapping = nullptr;
+        }
+    }
+
+
 private:
     block_index_t startBlock;
     inode_index_t numBlocks;
     inode_index_t size;
     BlockManager* blockManager;
     uint32_t inodeRegionStart;
+
+    bool snapshotMode = false;
+    inode_index_t* snapshotMapping;  // Native array for snapshot mappings
 };
 
 

@@ -108,12 +108,20 @@ void displayTree(const Directory* dir, const string& curPath)
 void displayFilesystem(BlockManager& blockManager)
 {
     FileSystem fileSystem(&blockManager);
+    std::cout << "Loading root directory..." << std::endl;
     auto* rootDir = fileSystem.getRootDirectory();
     std::cout << "/" << std::endl;
     displayTree(rootDir, "    /");
-    fileSystem.mountReadOnlySnapshot(2);
-    cout << "After mounting snapshot" << endl;
-    displayTree(rootDir, "    /");
+    FileSystem* snapshotFS = fileSystem.mountReadOnlySnapshot(2);
+    if (snapshotFS == nullptr) {
+        std::cerr << "Failed to mount read-only snapshot." << std::endl;
+        return;
+    }
+    auto* snapRoot = snapshotFS->getRootDirectory();
+    std::cout << "\nSnapshot filesystem (checkpoint 2):" << std::endl;
+    displayTree(snapRoot, "    /");
+    delete snapRoot;
+    delete snapshotFS;
     delete rootDir;
 }
 

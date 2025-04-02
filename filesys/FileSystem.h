@@ -17,12 +17,15 @@ public:
     explicit FileSystem(BlockManager *blockManager);
     Directory* getRootDirectory() const;
     bool createCheckpoint();
-    bool mountReadOnlySnapshot(uint32_t checkpointID);
-    // Directory* createDirectory();
-    // File* createFile();
-    // File* loadFile(inode_index_t inodeNumber);
+
+    // Mount a read-only snapshot based on a checkpoint ID.
+    // Returns a new FileSystem instance representing the snapshot, or nullptr on failure.
+    FileSystem* mountReadOnlySnapshot(uint32_t checkpointID);
+
 
 private:
+    bool readOnly = false; // default false
+
     BlockManager *blockManager;
     LogManager* logManager;
     BitmapManager *inodeBitmap;
