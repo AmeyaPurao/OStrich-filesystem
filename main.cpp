@@ -50,6 +50,9 @@ void runFilesystemSetupTest(BlockManager& blockManager)
     largeFile->write_at(0, (uint8_t*)buffer, BUFFER_SIZE);
     delete[] buffer;
 
+    std::cout << "Creating a new checkpoint" << std::endl;
+    fileSystem.createCheckpoint();
+
     std::cout << "Changing data in largefile" << std::endl;
     auto newTestData = " - new data! - ";
     largeFile->write_at(10, (uint8_t*)newTestData, strlen(newTestData)); // don't copy null terminator
@@ -69,27 +72,26 @@ void runFilesystemSetupTest(BlockManager& blockManager)
     delete rootDir;
 }
 
-void displayTree(const Directory* dir, const string& curPath)
+void displayTree(const Directory* dir, const std::string& curPath)
 {
-    // std::cout << "Listing entries" << std::endl;
     const std::vector<char*> entries = dir->listDirectoryEntries();
-    // std::cout << "Num entries: " << entries.size() << std::endl;
     for (const auto entry : entries)
     {
-        auto* file = dir->getFile(entry);
+        File* file = dir->getFile(entry);
         if (file->isDirectory())
         {
-            std::cout << curPath << entry << std::endl;
-            displayTree(dynamic_cast<Directory*>(file), "    " + curPath + entry + "/");
+            std::cout << curPath << entry << " (directory)" << std::endl;
+            displayTree(dynamic_cast<Directory*>(file), curPath + entry + "/");
         }
         else
         {
             if (file->getSize() > 0)
             {
                 char* data = new char[file->getSize()];
-                file->read_at(0, (uint8_t*)data, file->getSize());
+                file->read_at(0, reinterpret_cast<uint8_t*>(data), file->getSize());
                 data[file->getSize() - 1] = '\0';
-                std::cout << curPath << entry << " (" << data << ")" << std::endl;
+                std::cout << curPath << entry << " (file: " << data << ")" << std::endl;
+                delete[] data;
             }
             else
             {
@@ -98,7 +100,6 @@ void displayTree(const Directory* dir, const string& curPath)
         }
         delete file;
     }
-    // delete all entries
     for (auto entry : entries)
     {
         delete[] entry;
@@ -126,6 +127,44 @@ void displayFilesystem(BlockManager& blockManager)
     delete rootDir;
 }
 
+// New function to display both the live FS and the snapshot.
+void testSnapshot(BlockManager& blockManager)
+{
+    // Create live filesystem instance and display its state.
+    FileSystem liveFS(&blockManager);
+    Directory* liveRoot = liveFS.getRootDirectory();
+    std::cout << "Live filesystem:" << std::endl;
+    displayTree(liveRoot, "    /");
+    delete liveRoot;
+
+    // Mount a read-only snapshot based on a checkpoint.
+    // (Adjust the checkpointID as needed; here we use 2 as an example.)
+    FileSystem* snapshotFS = liveFS.mountReadOnlySnapshot(3);
+    if (snapshotFS == nullptr) {
+        std::cerr << "Failed to mount read-only snapshot." << std::endl;
+        return;
+    }
+    Directory* snapRoot = snapshotFS->getRootDirectory();
+    std::cout << "\nRead-only snapshot (checkpoint 3):" << std::endl;
+    displayTree(snapRoot, "    /");
+    delete snapRoot;
+
+    // Optionally, try a write operation on the snapshot to ensure it is read-only.
+    // For example:
+    // Directory* snapDir = dynamic_cast<Directory*>(snapshotFS->getRootDirectory()->getFile("dir1"));
+    // if (snapDir) {
+    //     if (!snapDir->createFile("illegalWrite")) {
+    //         std::cout << "\nWrite operation correctly rejected in snapshot." << std::endl;
+    //     } else {
+    //         std::cerr << "\nError: Write operation succeeded in snapshot!" << std::endl;
+    //     }
+    //     delete snapDir;
+    // }
+
+    // Clean up the snapshot instance.
+    delete snapshotFS;
+}
+
 int main()
 {
     FakeDiskDriver disk("OStrich_Hard_Drive", 8192);
@@ -141,8 +180,8 @@ int main()
     std::cout << "Running filesystem setup test" << std::endl;
     runFilesystemSetupTest(block_manager);
 
-    std::cout << std::endl << std::endl << "Displaying filesystem" << std::endl;
-    displayFilesystem(block_manager);
+    std::cout << "\n\nDisplaying live filesystem and snapshot:" << std::endl;
+    testSnapshot(block_manager);
 
     return 0;
 }

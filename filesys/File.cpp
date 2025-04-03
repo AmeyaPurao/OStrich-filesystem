@@ -141,7 +141,42 @@ bool File::write_new_block_data(const uint8_t* data)
     {
         return false;
     }
-    return inodeTable->writeInode(inodeLocation, inode);
+    cout << "Writing new block data to block " << newBlock << endl;
+
+    // Perform copy-on-write update on the inode:
+    inode_index_t newInodeLocation = inodeBitmap->findNextFree();
+    if (newInodeLocation == NULL_INDEX)
+    {
+        std::cerr << "Failed to allocate new inode for copy-on-write update in write_new_block_data" << std::endl;
+        return false;
+    }
+    if (!inodeBitmap->setAllocated(newInodeLocation))
+    {
+        std::cerr << "Failed to mark new inode as allocated in write_new_block_data" << std::endl;
+        return false;
+    }
+    inode_t newFileInode = inode;
+    if (!inodeTable->writeInode(newInodeLocation, newFileInode))
+    {
+        std::cerr << "Failed to write updated inode to disk in write_new_block_data" << std::endl;
+        return false;
+    }
+    LogRecordPayload payload{};
+    payload.inodeUpdate.inodeIndex = getInodeNumber();
+    payload.inodeUpdate.inodeLocation = newInodeLocation;
+    if (!logManager->logOperation(LogOpType::LOG_OP_INODE_UPDATE, &payload))
+    {
+        std::cerr << "Failed to log inode update in write_new_block_data" << std::endl;
+        return false;
+    }
+    cout << "Updating inode table for inode " << getInodeNumber() << ": replacing location " << inodeLocation
+         << " with new location " << newInodeLocation << std::endl;
+    if (!inodeTable->setInodeLocation(getInodeNumber(), newInodeLocation))
+    {
+        std::cerr << "Failed to update inode table for inode in write_new_block_data" << std::endl;
+        return false;
+    }
+    return true;
 }
 
 bool File::isDirectory() const
@@ -207,21 +242,38 @@ bool File::write_at(const uint64_t offset, const uint8_t* data, const uint64_t s
     // Update the file size if necessary.
     inode.size = std::max(offset + size, inode.size);
 
-    // Write the updated inode back to disk.
-    if (!inodeTable->writeInode(inodeLocation, inode)) {
-        std::cerr << "Failed to write updated inode" << std::endl;
+    // --- Perform copy-on-write update on the file's own inode ---
+    inode_index_t newInodeLocation = inodeBitmap->findNextFree();
+    if (newInodeLocation == NULL_INDEX) {
+        std::cerr << "Failed to allocate new inode for copy-on-write update in write_at" << std::endl;
         return false;
     }
-
-    // Log a single inode update record for the file.
-    LogRecordPayload payload{};
-    payload.inodeUpdate.inodeIndex = getInodeNumber();  // File's inode index.
-    payload.inodeUpdate.inodeLocation = inodeLocation;    // Current inode location.
-    if (!logManager->logOperation(LogOpType::LOG_OP_INODE_UPDATE, &payload)) {
-        std::cerr << "Failed to log inode update for file write" << std::endl;
+    if (!inodeBitmap->setAllocated(newInodeLocation)) {
+        std::cerr << "Failed to mark new inode as allocated in write_at" << std::endl;
         return false;
     }
-
+    // Create a new file inode by copying the updated inode.
+    inode_t newFileInode = inode;
+    // Write the new inode to disk.
+    if (!inodeTable->writeInode(newInodeLocation, newFileInode)) {
+        std::cerr << "Failed to write updated file inode to disk in write_at" << std::endl;
+        return false;
+    }
+    // Log the file inode update.
+    {
+        LogRecordPayload payload{};
+        payload.inodeUpdate.inodeIndex = getInodeNumber();
+        payload.inodeUpdate.inodeLocation = newInodeLocation;
+        if (!logManager->logOperation(LogOpType::LOG_OP_INODE_UPDATE, &payload)) {
+            std::cerr << "Failed to log inode update for file write in write_at" << std::endl;
+            return false;
+        }
+    }
+    // Update the inode table to point to the new file inode location.
+    if (!inodeTable->setInodeLocation(getInodeNumber(), newInodeLocation)) {
+        std::cerr << "Failed to update inode table for file inode in write_at" << std::endl;
+        return false;
+    }
     return true;
 }
 
