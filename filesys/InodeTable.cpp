@@ -91,7 +91,7 @@ inode_index_t InodeTable::getInodeLocation(inode_index_t inodeNumber)
     }
     if (snapshotMode) {
         // Return from the native array.
-        cout << "Got snapshot Inode mapping: " << inodeNumber << " to " << snapshotMapping[inodeNumber] << endl;
+ //       cout << "Got snapshot Inode mapping: " << inodeNumber << " to " << snapshotMapping[inodeNumber] << endl;
         return snapshotMapping[inodeNumber];
     }
     inode_index_t blockNum = inodeNumber / TABLE_ENTRIES_PER_BLOCK;
@@ -189,7 +189,7 @@ InodeTable* InodeTable::createSnapshotFromCheckpoint(block_index_t checkpointBlo
             inode_index_t idx = checkpoint.entries[i].inodeIndex;
             inode_index_t cpLocation = checkpoint.entries[i].inodeLocation;
             if (idx < totalInodes) {
-                cout << "Setting snapshot mapping for inode index " << idx << " to location " << cpLocation << endl;
+//                cout << "Setting snapshot mapping for inode index " << idx << " to location " << cpLocation << endl;
                 snapshot->snapshotMapping[idx] = cpLocation;
             }
         }

@@ -215,7 +215,7 @@ FileSystem* FileSystem::mountReadOnlySnapshot(uint32_t checkpointID) {
     delete snapshotFS->inodeTable; // Free the inode table loaded in the constructor.
     snapshotFS->inodeTable = snapshotInodeTable;
     // Mark the snapshot as read-only.
-    snapshotFS->superBlock->readOnly = true;
+    snapshotFS->readOnly = true;
     // ToDo reject writes in the snapshotFS instance somehow (probably need to add flag checks).
     return snapshotFS;
 }

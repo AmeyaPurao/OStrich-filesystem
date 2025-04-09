@@ -139,13 +139,13 @@ void testSnapshot(BlockManager& blockManager)
 
     // Mount a read-only snapshot based on a checkpoint.
     // (Adjust the checkpointID as needed; here we use 2 as an example.)
-    FileSystem* snapshotFS = liveFS.mountReadOnlySnapshot(3);
+    FileSystem* snapshotFS = liveFS.mountReadOnlySnapshot(2);
     if (snapshotFS == nullptr) {
         std::cerr << "Failed to mount read-only snapshot." << std::endl;
         return;
     }
     Directory* snapRoot = snapshotFS->getRootDirectory();
-    std::cout << "\nRead-only snapshot (checkpoint 3):" << std::endl;
+    std::cout << "\nRead-only snapshot (checkpoint 2):" << std::endl;
     displayTree(snapRoot, "    /");
     delete snapRoot;
 

@@ -141,7 +141,7 @@ bool File::write_new_block_data(const uint8_t* data)
     {
         return false;
     }
-    cout << "Writing new block data to block " << newBlock << endl;
+//    cout << "Writing new block data to block " << newBlock << endl;
 
     // Perform copy-on-write update on the inode:
     inode_index_t newInodeLocation = inodeBitmap->findNextFree();
@@ -169,8 +169,8 @@ bool File::write_new_block_data(const uint8_t* data)
         std::cerr << "Failed to log inode update in write_new_block_data" << std::endl;
         return false;
     }
-    cout << "Updating inode table for inode " << getInodeNumber() << ": replacing location " << inodeLocation
-         << " with new location " << newInodeLocation << std::endl;
+//    cout << "Updating inode table for inode " << getInodeNumber() << ": replacing location " << inodeLocation
+//         << " with new location " << newInodeLocation << std::endl;
     if (!inodeTable->setInodeLocation(getInodeNumber(), newInodeLocation))
     {
         std::cerr << "Failed to update inode table for inode in write_new_block_data" << std::endl;

@@ -143,7 +143,7 @@ bool LogManager::createCheckpoint() {
                 checkpoint_entry_t entry;
                 entry.inodeIndex = globalInodeIndex;
                 entry.inodeLocation = inodeBuffer[j];
-                cout<<"Adding inode index: " << entry.inodeIndex << " with location: " << entry.inodeLocation << endl;
+//                cout<<"Adding inode index: " << entry.inodeIndex << " with location: " << entry.inodeLocation << endl;
                 if (currentCheckpoint->numEntries < NUM_CHECKPOINTENTRIES_PER_CHECKPOINT) {
                     currentCheckpoint->entries[currentCheckpoint->numEntries++] = entry;
                 } else {

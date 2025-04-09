@@ -52,7 +52,7 @@ bool Directory::addDirectoryEntry(const char* fileName, inode_index_t fileNum)
     if (offset == 0)
     {
         // --- Copy-on-write branch for a new directory block ---
-        std::cout << "DEBUG: Creating new directory block for first entry in directory inode " << getInodeNumber() << std::endl;
+//        std::cout << "DEBUG: Creating new directory block for first entry in directory inode " << getInodeNumber() << std::endl;
         // Allocate a fresh block for this new set of directory entries.
         block_t newBlock{};
         // Write the new entry into index 0.
@@ -62,15 +62,15 @@ bool Directory::addDirectoryEntry(const char* fileName, inode_index_t fileNum)
 
         // Update the directory metadata.
         inode.numFiles++;
-        std::cout << "DEBUG: Updated inode numFiles to " << inode.numFiles << " for directory inode " << getInodeNumber() << std::endl;
-        std::cout << "DEBUG: Calling write_new_block_data to allocate new directory block for inode " << getInodeNumber() << std::endl;
+//        std::cout << "DEBUG: Updated inode numFiles to " << inode.numFiles << " for directory inode " << getInodeNumber() << std::endl;
+//        std::cout << "DEBUG: Calling write_new_block_data to allocate new directory block for inode " << getInodeNumber() << std::endl;
         // Allocate a new block for this directory block.
         if (!write_new_block_data(newBlock.data))
         {
             std::cerr << "Failed to allocate new directory block for entry: " << fileName << std::endl;
             return false;
         }
-        std::cout << "DEBUG: New directory block allocated and written for inode " << getInodeNumber() << std::endl;
+//        std::cout << "DEBUG: New directory block allocated and written for inode " << getInodeNumber() << std::endl;
         return true;
     }
     else
@@ -83,7 +83,7 @@ bool Directory::addDirectoryEntry(const char* fileName, inode_index_t fileNum)
             std::cerr << "Failed to read current directory block" << std::endl;
             return false;
         }
-        std::cout << "DEBUG: Read old directory block from physical block " << inode.directBlocks[inode.blockCount - 1] << " for directory inode " << getInodeNumber() << std::endl;
+//        std::cout << "DEBUG: Read old directory block from physical block " << inode.directBlocks[inode.blockCount - 1] << " for directory inode " << getInodeNumber() << std::endl;
         // Make a new copy of that block.
         block_t newBlock{};
         memcpy(newBlock.data, oldBlock.data, sizeof(newBlock.data));
@@ -95,7 +95,7 @@ bool Directory::addDirectoryEntry(const char* fileName, inode_index_t fileNum)
 
         // Update the total number of entries.
         inode.numFiles++;
-        std::cout << "DEBUG: Updated inode numFiles to " << inode.numFiles << " for directory inode " << getInodeNumber() << std::endl;
+//        std::cout << "DEBUG: Updated inode numFiles to " << inode.numFiles << " for directory inode " << getInodeNumber() << std::endl;
         // Allocate a new block for the updated directory block.
         block_index_t newBlockLocation = blockBitmap->findNextFree();
         if (newBlockLocation == BLOCK_NULL_VALUE)
@@ -108,7 +108,7 @@ bool Directory::addDirectoryEntry(const char* fileName, inode_index_t fileNum)
             std::cerr << "Failed to mark new block as allocated" << std::endl;
             return false;
         }
-        std::cout << "DEBUG: Allocated new copy-on-write directory block at physical block " << newBlockLocation << " for directory inode " << getInodeNumber() << std::endl;
+//        std::cout << "DEBUG: Allocated new copy-on-write directory block at physical block " << newBlockLocation << " for directory inode " << getInodeNumber() << std::endl;
 
         // Write the new block data to disk.
         if (!blockManager->writeBlock(newBlockLocation, newBlock.data))
@@ -116,10 +116,10 @@ bool Directory::addDirectoryEntry(const char* fileName, inode_index_t fileNum)
             std::cerr << "Failed to write updated directory block to disk" << std::endl;
             return false;
         }
-        std::cout << "DEBUG: Wrote new directory block to disk at physical block " << newBlockLocation << " for directory inode " << getInodeNumber() << std::endl;
+//        std::cout << "DEBUG: Wrote new directory block to disk at physical block " << newBlockLocation << " for directory inode " << getInodeNumber() << std::endl;
 
 
-        std::cout << "DEBUG: Updating inode table for directory inode " << getInodeNumber() << ": replacing block pointer " << inode.directBlocks[inode.blockCount - 1] << " with new block " << newBlockLocation << std::endl;
+//        std::cout << "DEBUG: Updating inode table for directory inode " << getInodeNumber() << ": replacing block pointer " << inode.directBlocks[inode.blockCount - 1] << " with new block " << newBlockLocation << std::endl;
         // Update the parent's inode to reference the new block.
         // (We update the pointer for the last block in the directory.)
         inode.directBlocks[inode.blockCount - 1] = newBlockLocation;
@@ -162,6 +162,8 @@ bool Directory::addDirectoryEntry(const char* fileName, inode_index_t fileNum)
 
 
 bool Directory::removeDirectoryEntry(const char* fileName) {
+
+
     // Iterate over each block in the directory's inode block list.
     block_t block;
     for (uint32_t i = 0; i < inode.blockCount; i++) {
