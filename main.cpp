@@ -81,7 +81,7 @@ void displayTree(const Directory* dir, const std::string& curPath)
         if (file->isDirectory())
         {
             std::cout << curPath << entry << " (directory)" << std::endl;
-            displayTree(dynamic_cast<Directory*>(file), curPath + entry + "/");
+            displayTree(dynamic_cast<Directory*>(file), "    " + curPath + entry + "/");
         }
         else
         {
@@ -121,6 +121,7 @@ void displayFilesystem(BlockManager& blockManager)
     auto* snapRoot = snapshotFS->getRootDirectory();
     std::cout << "\nSnapshot filesystem (checkpoint 2):" << std::endl;
     displayTree(snapRoot, "    /");
+
     cout << "Unmounting snapshot filesystem..." << endl;
     delete snapRoot;
     delete snapshotFS;
@@ -149,6 +150,16 @@ void testSnapshot(BlockManager& blockManager)
     displayTree(snapRoot, "    /");
     delete snapRoot;
 
+    FileSystem* snapshotFS2 = liveFS.mountReadOnlySnapshot(3);
+    if (snapshotFS2 == nullptr) {
+        std::cerr << "Failed to mount read-only snapshot." << std::endl;
+        return;
+    }
+    auto* snapRoot2 = snapshotFS2->getRootDirectory();
+    std::cout << "\nRead0only snapshot (checkpoint 3):" << std::endl;
+    displayTree(snapRoot2, "    /");
+    delete snapRoot2;
+
     // Optionally, try a write operation on the snapshot to ensure it is read-only.
     // For example:
     // Directory* snapDir = dynamic_cast<Directory*>(snapshotFS->getRootDirectory()->getFile("dir1"));
@@ -163,6 +174,7 @@ void testSnapshot(BlockManager& blockManager)
 
     // Clean up the snapshot instance.
     delete snapshotFS;
+    delete snapshotFS2;
 }
 
 int main()
