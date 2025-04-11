@@ -4,7 +4,7 @@
 
 #include "File.h"
 
-#include <string.h>
+#include "cstring"
 
 #include "BitmapManager.h"
 #include "InodeTable.h"

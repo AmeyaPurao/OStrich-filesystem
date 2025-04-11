@@ -4,7 +4,7 @@
 
 #include "FileSystem.h"
 
-#include <string.h>
+#include "cstring"
 
 static const block_index_t LOG_AREA_SIZE = 64; // Reserve 64 blocks for the log area, need to adjust this later
 static const uint32_t NUM_CHECKPOINTS = 128;
