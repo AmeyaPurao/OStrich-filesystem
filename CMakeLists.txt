@@ -23,3 +23,5 @@ add_executable(MockFilesys main.cpp
         filesys/LogManager.cpp
         filesys/LogManager.h
 )
+
+target_compile_definitions(MockFilesys PRIVATE NOT_KERNEL)

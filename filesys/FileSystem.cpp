@@ -5,6 +5,8 @@
 #include "FileSystem.h"
 
 #include "cstring"
+#include "cstdio"
+#include "cassert"
 
 static const block_index_t LOG_AREA_SIZE = 64; // Reserve 64 blocks for the log area, need to adjust this later
 static const uint32_t NUM_CHECKPOINTS = 128;
@@ -17,19 +19,18 @@ FileSystem::FileSystem(BlockManager* blockManager): blockManager(blockManager), 
     this->superBlock = &superBlockWrapper.superBlock;
     if (!blockManager->readBlock(0, superBlockWrapper.data))
     {
-        std::cerr << "Could not read superblock" << std::endl;
-        throw std::runtime_error("Could not read superblock");
+        printf("Could not read superblock\n");
+        assertm(0, "Could not read superblock\n");
     }
 
     if (superBlock->magic != MAGIC_NUMBER)
     {
-         std::cout << "Creating new filesystem; found magic: " << superBlock->magic << " | expected: " << MAGIC_NUMBER <<
-             std::endl;
+         printf("Creating new filesystem; found magic: %d | expected: %d\n", superBlock->magic, MAGIC_NUMBER);
         createFilesystem();
     }
     else
     {
-        std::cout << "Existing filesystem detected" << std::endl;
+        printf("Existing filesystem detected\n");
     }
     loadFilesystem();
 }
@@ -64,8 +65,8 @@ void FileSystem::createFilesystem()
     // Reserve LOG_AREA_SIZE blocks for logging.
     if (remainingBlocks < superBlock->dataBlockBitmapSize + LOG_AREA_SIZE)
     {
-        std::cerr << "Not enough blocks remaining for data and log areas." << std::endl;
-        throw std::runtime_error("Insufficient space for log area");
+        printf("Not enough blocks remaining for data and log areas.\n");
+        assertm(0, "Insufficient space for log area\n");
     }
     superBlock->dataBlockCount = remainingBlocks - superBlock->dataBlockBitmapSize - LOG_AREA_SIZE;
     superBlock->freeDataBlockCount = superBlock->dataBlockCount;
@@ -98,8 +99,8 @@ void FileSystem::createFilesystem()
     {
         if (!blockManager->writeBlock(superBlock->dataBlockBitmap + i, zeroBlock.data))
         {
-            std::cerr << "Could not write block bitmap" << std::endl;
-            throw std::runtime_error("Could not write block bitmap");
+            printf("Could not write block bitmap\n");
+            assertm(0, "Could not write block bitmap\n");
         }
     }
 
@@ -107,8 +108,8 @@ void FileSystem::createFilesystem()
     {
         if (!blockManager->writeBlock(superBlock->inodeBitmap + i, zeroBlock.data))
         {
-            std::cerr << "Could not write inode bitmap" << std::endl;
-            throw std::runtime_error("Could not write inode bitmap");
+            printf("Could not write inode bitmap\n");
+            assertm(0, "Could not write inode bitmap\n");
         }
     }
 
@@ -116,14 +117,14 @@ void FileSystem::createFilesystem()
 
     if (!blockManager->writeBlock(0, superBlockWrapper.data))
     {
-        std::cerr << "Could not write superblock" << std::endl;
-        throw std::runtime_error("Could not write superblock");
+        printf("Could not write superblock\n");
+        assertm(0, "Could not write superblock\n");
     }
 }
 
 void FileSystem::loadFilesystem()
 {
-    // std::cout << "Loading filesystem" << std::endl;
+    // printf("Loading filesystem\n");
     // std::cout << "Size: " << superBlock->size << std::endl;
     // std::cout << "Inode region start: " << superBlock->inodeRegionStart << std::endl;
     // std::cout << "Data block region start: " << superBlock->dataBlockRegionStart << std::endl;
@@ -150,7 +151,7 @@ bool FileSystem::readInode(inode_index_t inodeLocation, inode_t& inode)
     block_t tempBlock;
     if (!blockManager->readBlock(inodeBlock, tempBlock.data))
     {
-        std::cerr << "Could not read inode block" << std::endl;
+        printf("Could not read inode block\n");
         return false;
     }
     inode = tempBlock.inodeBlock.inodes[inodeLocation % INODES_PER_BLOCK];
@@ -163,13 +164,13 @@ bool FileSystem::writeInode(inode_index_t inodeLocation, inode_t& inode)
     block_t tempBlock;
     if (!blockManager->readBlock(inodeBlock, tempBlock.data))
     {
-        std::cerr << "Could not read inode block" << std::endl;
+        printf("Could not read inode block\n");
         return false;
     }
     tempBlock.inodeBlock.inodes[inodeLocation % INODES_PER_BLOCK] = inode;
     if (!blockManager->writeBlock(inodeBlock, tempBlock.data))
     {
-        std::cerr << "Could not write inode block" << std::endl;
+        printf("Could not write inode block\n");
         return false;
     }
     return true;
@@ -177,7 +178,7 @@ bool FileSystem::writeInode(inode_index_t inodeLocation, inode_t& inode)
 
 Directory* FileSystem::createRootInode()
 {
-     std::cout << "Creating root inode" << std::endl;
+     printf("Creating root inode\n");
     return new Directory(inodeTable, inodeBitmap, blockBitmap, blockManager, logManager, DIRECTORY_MASK);
 }
 
@@ -190,23 +191,23 @@ FileSystem* FileSystem::mountReadOnlySnapshot(uint32_t checkpointID) {
     // Read the superblock from disk.
     block_t superBlockTemp;
     if (!blockManager->readBlock(0, superBlockTemp.data)) {
-        std::cerr << "mountReadOnlySnapshot: Failed to read superblock" << std::endl;
+        printf("mountReadOnlySnapshot: Failed to read superblock\n");
         return nullptr;
     }
     // Validate checkpointID and obtain the checkpoint block index.
     if (checkpointID >= 128) {
-        std::cerr << "mountReadOnlySnapshot: Invalid checkpointID" << std::endl;
+        printf("mountReadOnlySnapshot: Invalid checkpointID\n");
         return nullptr;
     }
     block_index_t cpBlock = superBlockTemp.superBlock.checkpointArr[checkpointID];
     if (cpBlock == 0) {
-        std::cerr << "mountReadOnlySnapshot: Checkpoint not available" << std::endl;
+        printf("mountReadOnlySnapshot: Checkpoint not available\n");
         return nullptr;
     }
     // Create a snapshot of the inode table from the checkpoint chain.
     InodeTable* snapshotInodeTable = InodeTable::createSnapshotFromCheckpoint(cpBlock, this->inodeTable);
     if (!snapshotInodeTable) {
-        std::cerr << "mountReadOnlySnapshot: Failed to create snapshot inode table" << std::endl;
+        printf("mountReadOnlySnapshot: Failed to create snapshot inode table\n");
         return nullptr;
     }
     // Create a new FileSystem instance (the live instance remains unchanged).

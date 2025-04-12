@@ -5,6 +5,9 @@
 #include "File.h"
 
 #include "cstring"
+#include "cassert"
+#include "cstdio"
+#include "algorithm"
 
 #include "BitmapManager.h"
 #include "InodeTable.h"
@@ -17,8 +20,8 @@ File::File(InodeTable* inodeTable, BitmapManager* inodeBitmap, BitmapManager* bl
     inodeLocation = inodeBitmap->findNextFree();
     if (!inodeBitmap->setAllocated(inodeLocation))
     {
-        std::cerr << "Could not set inode bit" << std::endl;
-        throw std::runtime_error("Could not set inode bit");
+        printf("Could not set inode bit\n");
+        assertm(0, "Could not set inode bit\n");
     }
     inode.size = 0;
     inode.blockCount = 0;
@@ -44,15 +47,15 @@ File::File(InodeTable* inodeTable, BitmapManager* inodeBitmap, BitmapManager* bl
 
     if (!inodeTable->writeInode(inodeLocation, inode))
     {
-        std::cerr << "Could not write inode" << std::endl;
-        throw std::runtime_error("Could not write inode");
+        printf("Could not write inode\n");
+        assertm(0, "Could not write inode\n");
     }
 
     inodeNumber = inodeTable->getFreeInodeNumber();
     if (inodeNumber == INODE_NULL_VALUE)
     {
-        std::cerr << "Could not get free inode number" << std::endl;
-        throw std::runtime_error("Could not get free inode number");
+        printf("Could not get free inode number\n");
+        assertm(0, "Could not get free inode number\n");
     }
     LogRecordPayload payload{};
     payload.inodeAdd.inodeIndex = inodeNumber;
@@ -60,8 +63,8 @@ File::File(InodeTable* inodeTable, BitmapManager* inodeBitmap, BitmapManager* bl
     logManager->logOperation(LogOpType::LOG_OP_INODE_ADD, &payload);
     if (!inodeTable->setInodeLocation(inodeNumber, inodeLocation))
     {
-        std::cerr << "Could not set inode location" << std::endl;
-        throw std::runtime_error("Could not set inode location");
+        printf("Could not set inode location\n");
+        assertm(0, "Could not set inode location\n");
     }
 
     // std::cout << "Creating file with permissions: " << permissions << " with number " << inodeNumber << " at " <<
@@ -75,11 +78,11 @@ File::File(inode_index_t inodeNumber, InodeTable* inodeTable, BitmapManager* ino
     inodeLocation = inodeTable->getInodeLocation(inodeNumber);
     if (inodeLocation == INODE_NULL_VALUE)
     {
-        throw std::runtime_error("Inode not found");
+        assertm(0, "Inode not found\n");
     }
     if (!inodeTable->readInode(inodeLocation, inode))
     {
-        throw std::runtime_error("Could not read inode");
+        assertm(0, "Could not read inode\n");
     }
 }
 
@@ -109,7 +112,7 @@ block_index_t File::getBlockLocation(const block_index_t blockNum) const
     {
         return inode.directBlocks[blockNum];
     }
-    throw std::runtime_error("Indirect blocks not implemented");
+    assertm(0, "Indirect blocks not implemented\n");
 }
 
 bool File::write_block_data(const block_index_t blockNum, const uint8_t* data)
@@ -134,7 +137,7 @@ bool File::write_new_block_data(const uint8_t* data)
     }
     else
     {
-        throw std::runtime_error("Indirect blocks not implemented");
+        assertm(0, "Indirect blocks not implemented\n");
     }
     inode.blockCount++;
     if (!blockManager->writeBlock(newBlock, data))
@@ -147,18 +150,18 @@ bool File::write_new_block_data(const uint8_t* data)
     inode_index_t newInodeLocation = inodeBitmap->findNextFree();
     if (newInodeLocation == NULL_INDEX)
     {
-        std::cerr << "Failed to allocate new inode for copy-on-write update in write_new_block_data" << std::endl;
+        printf("Failed to allocate new inode for copy-on-write update in write_new_block_data\n");
         return false;
     }
     if (!inodeBitmap->setAllocated(newInodeLocation))
     {
-        std::cerr << "Failed to mark new inode as allocated in write_new_block_data" << std::endl;
+        printf("Failed to mark new inode as allocated in write_new_block_data\n");
         return false;
     }
     inode_t newFileInode = inode;
     if (!inodeTable->writeInode(newInodeLocation, newFileInode))
     {
-        std::cerr << "Failed to write updated inode to disk in write_new_block_data" << std::endl;
+        printf("Failed to write updated inode to disk in write_new_block_data\n");
         return false;
     }
     LogRecordPayload payload{};
@@ -166,14 +169,14 @@ bool File::write_new_block_data(const uint8_t* data)
     payload.inodeUpdate.inodeLocation = newInodeLocation;
     if (!logManager->logOperation(LogOpType::LOG_OP_INODE_UPDATE, &payload))
     {
-        std::cerr << "Failed to log inode update in write_new_block_data" << std::endl;
+        printf("Failed to log inode update in write_new_block_data\n");
         return false;
     }
 //    cout << "Updating inode table for inode " << getInodeNumber() << ": replacing location " << inodeLocation
 //         << " with new location " << newInodeLocation << std::endl;
     if (!inodeTable->setInodeLocation(getInodeNumber(), newInodeLocation))
     {
-        std::cerr << "Failed to update inode table for inode in write_new_block_data" << std::endl;
+        printf("Failed to update inode table for inode in write_new_block_data\n");
         return false;
     }
     return true;
@@ -186,7 +189,7 @@ bool File::isDirectory() const
 
 bool File::write_at(const uint64_t offset, const uint8_t* data, const uint64_t size) {
     if (offset > inode.size) {
-        std::cerr << "Offset out of bounds" << std::endl;
+        printf("Offset out of bounds\n");
         return false;
     }
 
@@ -201,24 +204,24 @@ bool File::write_at(const uint64_t offset, const uint8_t* data, const uint64_t s
         if (blockNum < inode.blockCount) {
             // Read the existing block into our temporary block.
             if (!read_block_data(blockNum, block.data)) {
-                std::cerr << "Failed to read block " << blockNum << std::endl;
+                printf("Failed to read block %d\n", blockNum);
                 return false;
             }
             // Allocate a new block for the updated copy.
             block_index_t newBlock = blockBitmap->findNextFree();
             if (newBlock == BLOCK_NULL_VALUE) {
-                std::cerr << "No free block available for copy-on-write update" << std::endl;
+                printf("No free block available for copy-on-write update\n");
                 return false;
             }
             if (!blockBitmap->setAllocated(newBlock)) {
-                std::cerr << "Failed to mark new block as allocated" << std::endl;
+                printf("Failed to mark new block as allocated\n");
                 return false;
             }
             // Copy the old block contents (already in block.data) and apply modifications.
             memcpy(block.data + blockOffset, data + (cur - offset), toWrite);
             // Write the modified block to the newly allocated block.
             if (!blockManager->writeBlock(newBlock, block.data)) {
-                std::cerr << "Failed to write new block for updated data" << std::endl;
+                printf("Failed to write new block for updated data\n");
                 return false;
             }
             // Update the inode pointer for this block.
@@ -232,7 +235,7 @@ bool File::write_at(const uint64_t offset, const uint8_t* data, const uint64_t s
             memcpy(block.data + blockOffset, data + (cur - offset), toWrite);
             // Allocate and write this block using our helper.
             if (!write_new_block_data(block.data)) {
-                std::cerr << "Failed to allocate and write new block for file extension" << std::endl;
+                printf("Failed to allocate and write new block for file extension\n");
                 return false;
             }
         }
@@ -245,18 +248,18 @@ bool File::write_at(const uint64_t offset, const uint8_t* data, const uint64_t s
     // --- Perform copy-on-write update on the file's own inode ---
     inode_index_t newInodeLocation = inodeBitmap->findNextFree();
     if (newInodeLocation == NULL_INDEX) {
-        std::cerr << "Failed to allocate new inode for copy-on-write update in write_at" << std::endl;
+        printf("Failed to allocate new inode for copy-on-write update in write_at\n");
         return false;
     }
     if (!inodeBitmap->setAllocated(newInodeLocation)) {
-        std::cerr << "Failed to mark new inode as allocated in write_at" << std::endl;
+        printf("Failed to mark new inode as allocated in write_at\n");
         return false;
     }
     // Create a new file inode by copying the updated inode.
     inode_t newFileInode = inode;
     // Write the new inode to disk.
     if (!inodeTable->writeInode(newInodeLocation, newFileInode)) {
-        std::cerr << "Failed to write updated file inode to disk in write_at" << std::endl;
+        printf("Failed to write updated file inode to disk in write_at\n");
         return false;
     }
     // Log the file inode update.
@@ -265,13 +268,13 @@ bool File::write_at(const uint64_t offset, const uint8_t* data, const uint64_t s
         payload.inodeUpdate.inodeIndex = getInodeNumber();
         payload.inodeUpdate.inodeLocation = newInodeLocation;
         if (!logManager->logOperation(LogOpType::LOG_OP_INODE_UPDATE, &payload)) {
-            std::cerr << "Failed to log inode update for file write in write_at" << std::endl;
+            printf("Failed to log inode update for file write in write_at\n");
             return false;
         }
     }
     // Update the inode table to point to the new file inode location.
     if (!inodeTable->setInodeLocation(getInodeNumber(), newInodeLocation)) {
-        std::cerr << "Failed to update inode table for file inode in write_at" << std::endl;
+        printf("Failed to update inode table for file inode in write_at\n");
         return false;
     }
     return true;
@@ -282,7 +285,7 @@ bool File::read_at(const uint64_t offset, uint8_t* data, const uint64_t size) co
 {
     if (offset + size > inode.size)
     {
-        std::cerr << "Offset out of bounds" << std::endl;
+        printf("Offset out of bounds\n");
         return false;
     }
     uint64_t cur = offset;

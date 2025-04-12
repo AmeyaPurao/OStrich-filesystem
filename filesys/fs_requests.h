@@ -138,5 +138,13 @@ typedef struct {
     fs_response_data_t data;
 } fs_response_t;
 
-#endif // FS_REQUESTS_H
+// Function prototypes
+fs_response_t fs_req_add_dir(fs_req_t* req);
+fs_response_t fs_req_create_file(fs_req_t* req);
+fs_response_t fs_req_remove_file(fs_req_t* req);
+fs_response_t fs_req_read_dir(fs_req_t* req);
+fs_response_t fs_req_open(fs_req_t* req);
+fs_response_t fs_req_write(fs_req_t* req);
+fs_response_t fs_req_read(fs_req_t* req);
 
+#endif // FS_REQUESTS_H

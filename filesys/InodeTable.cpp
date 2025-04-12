@@ -3,7 +3,7 @@
 //
 
 #include "InodeTable.h"
-
+#include "cstdio"
 #include "LogManager.h"
 #include "LogRecord.h"
 
@@ -25,7 +25,7 @@ bool InodeTable::initialize(const block_index_t startBlock, const inode_index_t 
         }
         if (!blockManager->writeBlock(startBlock + i, tempBlock.data))
         {
-            std::cerr << "Could not write inode table block" << std::endl;
+            printf("Could not write inode table block\n");
             return false;
         }
     }
@@ -41,7 +41,7 @@ inode_index_t InodeTable::getFreeInodeNumber()
         {
             if (!blockManager->readBlock(startBlock + i / TABLE_ENTRIES_PER_BLOCK, tempBlock.data))
             {
-                std::cerr << "Could not read inode table block" << std::endl;
+                printf("Could not read inode table block\n");
                 return INODE_NULL_VALUE;
             }
         }
@@ -57,7 +57,7 @@ bool InodeTable::setInodeLocation(inode_index_t inodeNumber, inode_index_t locat
 {
     if (inodeNumber >= size)
     {
-        std::cerr << "Inode number out of bounds" << std::endl;
+        printf("Inode number out of bounds\n");
         return false;
     }
     if (snapshotMode) {
@@ -70,13 +70,13 @@ bool InodeTable::setInodeLocation(inode_index_t inodeNumber, inode_index_t locat
     block_t tempBlock;
     if (!blockManager->readBlock(startBlock + blockNum, tempBlock.data))
     {
-        std::cerr << "Could not read inode table block" << std::endl;
+        printf("Could not read inode table block\n");
         return false;
     }
     tempBlock.inodeTable.inodeNumbers[entryNum] = location;
     if (!blockManager->writeBlock(startBlock + blockNum, tempBlock.data))
     {
-        std::cerr << "Could not write inode table block" << std::endl;
+        printf("Could not write inode table block\n");
         return false;
     }
     return true;
@@ -86,7 +86,7 @@ inode_index_t InodeTable::getInodeLocation(inode_index_t inodeNumber)
 {
     if (inodeNumber >= size)
     {
-        std::cerr << "Inode number out of bounds" << std::endl;
+        printf("Inode number out of bounds\n");
         return INODE_NULL_VALUE;
     }
     if (snapshotMode) {
@@ -99,7 +99,7 @@ inode_index_t InodeTable::getInodeLocation(inode_index_t inodeNumber)
     block_t tempBlock;
     if (!blockManager->readBlock(startBlock + blockNum, tempBlock.data))
     {
-        std::cerr << "Could not read inode table block" << std::endl;
+        printf("Could not read inode table block\n");
         return INODE_NULL_VALUE;
     }
     return tempBlock.inodeTable.inodeNumbers[entryNum];
@@ -111,13 +111,13 @@ bool InodeTable::writeInode(inode_index_t inodeLocation, inode_t& inode)
     block_t tempBlock;
     if (!blockManager->readBlock(inodeBlock, tempBlock.data))
     {
-        std::cerr << "Could not read inode block" << std::endl;
+        printf("Could not read inode block\n");
         return false;
     }
     tempBlock.inodeBlock.inodes[inodeLocation % INODES_PER_BLOCK] = inode;
     if (!blockManager->writeBlock(inodeBlock, tempBlock.data))
     {
-        std::cerr << "Could not write inode block" << std::endl;
+        printf("Could not write inode block\n");
         return false;
     }
     // std::cout << "[write inode] inodeLocation: " << inodeLocation << std::endl;
@@ -131,7 +131,7 @@ bool InodeTable::readInode(inode_index_t inodeLocation, inode_t& inode)
     block_t tempBlock;
     if (!blockManager->readBlock(inodeBlock, tempBlock.data))
     {
-        std::cerr << "Could not read inode block" << std::endl;
+        printf("Could not read inode block\n");
         return false;
     }
     inode = tempBlock.inodeBlock.inodes[inodeLocation % INODES_PER_BLOCK];
@@ -143,13 +143,13 @@ bool InodeTable::readInodeBlock(inode_index_t blockIndex, inode_index_t* outBuff
 {
     // Ensure blockIndex is within the number of inode table blocks.
     if (blockIndex >= numBlocks) {
-        std::cerr << "readInodeBlock: block index " << blockIndex << " is out of range." << std::endl;
+        printf("readInodeBlock: block index %d is out of range.\n", blockIndex);
         return false;
     }
     block_t tempBlock;
     // Read the block from disk. The inode table blocks start at startBlock.
     if (!blockManager->readBlock(startBlock + blockIndex, tempBlock.data)) {
-        std::cerr << "readInodeBlock: could not read inode table block " << (startBlock + blockIndex) << std::endl;
+        printf("readInodeBlock: could not read inode table block %d\n", (startBlock + blockIndex));
         return false;
     }
     // Copy the entire array of inodeNumbers from the block into outBuffer.
@@ -176,12 +176,12 @@ InodeTable* InodeTable::createSnapshotFromCheckpoint(block_index_t checkpointBlo
     block_index_t currentCp = checkpointBlockIndex;
     while (true) {
         if (!liveTable->blockManager->readBlock(currentCp, reinterpret_cast<uint8_t*>(&checkpoint))) {
-            std::cerr << "Snapshot: Failed to read checkpoint block at " << currentCp << std::endl;
+            printf("Snapshot: Failed to read checkpoint block at %d\n", currentCp);
             delete snapshot;
             return nullptr;
         }
         if (checkpoint.magic != CHECKPOINT_MAGIC) {
-            std::cerr << "Snapshot: Invalid checkpoint magic at " << currentCp << std::endl;
+            printf("Snapshot: Invalid checkpoint magic at %d\n", currentCp);
             delete snapshot;
             return nullptr;
         }

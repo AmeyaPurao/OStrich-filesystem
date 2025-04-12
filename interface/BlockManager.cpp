@@ -1,7 +1,7 @@
 #include "BlockManager.h"
 
-BlockManager::BlockManager(FakeDiskDriver& disk, const FakeDiskDriver::Partition& partition)
-    : disk(disk), partition(partition)
+BlockManager::BlockManager(FakeDiskDriver& disk, const FakeDiskDriver::Partition& partition, int numBlocks)
+    : disk(disk), partition(partition), numBlocks(numBlocks)
 {
     // Calculate the number of sectors per block.
     sectorsPerBlock = BLOCK_SIZE / FakeDiskDriver::SECTOR_SIZE;

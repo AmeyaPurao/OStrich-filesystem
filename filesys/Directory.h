@@ -6,6 +6,7 @@
 #define DIRECTORY_H
 #include "File.h"
 #include "LogManager.h"
+#include "vector"
 
 class Directory : public File
 {

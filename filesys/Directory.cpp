@@ -5,6 +5,8 @@
 #include "Directory.h"
 
 #include "cstring"
+#include "cstdio"
+#include "vector"
 
 Directory::Directory(InodeTable* inodeTable, BitmapManager* inodeBitmap, BitmapManager* blockBitmap,
                      BlockManager* blockManager, LogManager* logManager, const uint16_t permissions): File(
@@ -39,7 +41,6 @@ inode_index_t Directory::getDirectoryEntry(const char* fileName) const
             }
         }
     }
-    // std::cout << "File: " << fileName << " not found" << std::endl;
     return INODE_NULL_VALUE;
 }
 
@@ -67,7 +68,7 @@ bool Directory::addDirectoryEntry(const char* fileName, inode_index_t fileNum)
         // Allocate a new block for this directory block.
         if (!write_new_block_data(newBlock.data))
         {
-            std::cerr << "Failed to allocate new directory block for entry: " << fileName << std::endl;
+            printf("Failed to allocate new directory block for entry: %s\n", fileName);
             return false;
         }
 //        std::cout << "DEBUG: New directory block allocated and written for inode " << getInodeNumber() << std::endl;
@@ -80,7 +81,7 @@ bool Directory::addDirectoryEntry(const char* fileName, inode_index_t fileNum)
         block_t oldBlock{};
         if (!read_block_data(inode.blockCount - 1, oldBlock.data))
         {
-            std::cerr << "Failed to read current directory block" << std::endl;
+            printf("Failed to read current directory block\n");
             return false;
         }
 //        std::cout << "DEBUG: Read old directory block from physical block " << inode.directBlocks[inode.blockCount - 1] << " for directory inode " << getInodeNumber() << std::endl;
@@ -100,12 +101,12 @@ bool Directory::addDirectoryEntry(const char* fileName, inode_index_t fileNum)
         block_index_t newBlockLocation = blockBitmap->findNextFree();
         if (newBlockLocation == BLOCK_NULL_VALUE)
         {
-            std::cerr << "No free block available for copy-on-write directory update" << std::endl;
+            printf("No free block available for copy-on-write directory update\n");
             return false;
         }
         if (!blockBitmap->setAllocated(newBlockLocation))
         {
-            std::cerr << "Failed to mark new block as allocated" << std::endl;
+            printf("Failed to mark new block as allocated\n");
             return false;
         }
 //        std::cout << "DEBUG: Allocated new copy-on-write directory block at physical block " << newBlockLocation << " for directory inode " << getInodeNumber() << std::endl;
@@ -113,7 +114,7 @@ bool Directory::addDirectoryEntry(const char* fileName, inode_index_t fileNum)
         // Write the new block data to disk.
         if (!blockManager->writeBlock(newBlockLocation, newBlock.data))
         {
-            std::cerr << "Failed to write updated directory block to disk" << std::endl;
+            printf("Failed to write updated directory block to disk\n");
             return false;
         }
 //        std::cout << "DEBUG: Wrote new directory block to disk at physical block " << newBlockLocation << " for directory inode " << getInodeNumber() << std::endl;
@@ -127,18 +128,18 @@ bool Directory::addDirectoryEntry(const char* fileName, inode_index_t fileNum)
         // --- Perform copy-on-write update on the parent's inode ---
         inode_index_t newInodeLocation = inodeBitmap->findNextFree();
         if (newInodeLocation == NULL_INDEX) {
-            std::cerr << "Failed to allocate new inode for copy-on-write update" << std::endl;
+            printf("Failed to allocate new inode for copy-on-write update\n");
             return false;
         }
         if (!inodeBitmap->setAllocated(newInodeLocation)) {
-            std::cerr << "Failed to mark new inode as allocated" << std::endl;
+            printf("Failed to mark new inode as allocated\n");
             return false;
         }
         // Create a new parent's inode by copying the updated inode.
         inode_t newParentInode = inode;
         // Write the new inode to disk.
         if (!inodeTable->writeInode(newInodeLocation, newParentInode)) {
-            std::cerr << "Failed to write updated parent's inode to disk" << std::endl;
+            printf("Failed to write updated parent's inode to disk\n");
             return false;
         }
         // Log the parent's inode update.
@@ -147,13 +148,13 @@ bool Directory::addDirectoryEntry(const char* fileName, inode_index_t fileNum)
             payload.inodeUpdate.inodeIndex = getInodeNumber();
             payload.inodeUpdate.inodeLocation = newInodeLocation;
             if (!logManager->logOperation(LogOpType::LOG_OP_INODE_UPDATE, &payload)) {
-                std::cerr << "Failed to log parent's inode update" << std::endl;
+                printf("Failed to log parent's inode update\n");
                 return false;
             }
         }
         // Update the inode table to point to the new parent's inode location.
         if (!inodeTable->setInodeLocation(getInodeNumber(), newInodeLocation)) {
-            std::cerr << "Failed to update inode table for parent's inode" << std::endl;
+            printf("Failed to update inode table for parent's inode\n");
             return false;
         }
         return true;
@@ -169,7 +170,7 @@ bool Directory::removeDirectoryEntry(const char* fileName) {
     for (uint32_t i = 0; i < inode.blockCount; i++) {
         // Read the current directory block.
         if (!read_block_data(i, block.data)) {
-            std::cerr << "Failed to read directory block " << i << std::endl;
+            printf("Failed to read directory block %d\n", i);
             continue;
         }
         // Search through all entries in this block.
@@ -181,7 +182,7 @@ bool Directory::removeDirectoryEntry(const char* fileName) {
                 // Calculate the global index of the found entry.
                 uint32_t entryGlobalIndex = i * DIRECTORY_ENTRIES_PER_BLOCK + j;
                 if (entryGlobalIndex >= inode.numFiles) {
-                    std::cerr << "Entry global index out of bounds" << std::endl;
+                    printf("Entry global index out of bounds\n");
                     return false;
                 }
 
@@ -189,7 +190,7 @@ bool Directory::removeDirectoryEntry(const char* fileName) {
                 LogRecordPayload payload{};
                 payload.inodeDelete.inodeIndex = block.directoryBlock.entries[j].inodeNumber;
                 if (!logManager->logOperation(LogOpType::LOG_OP_INODE_DELETE, &payload)) {
-                    std::cerr << "Failed to log inode deletion" << std::endl;
+                    printf("Failed to log inode deletion\n");
                     return false;
                 }
 
@@ -211,7 +212,7 @@ bool Directory::removeDirectoryEntry(const char* fileName) {
                         // The last entry is in a different block. Read that block.
                         block_t lastBlock;
                         if (!read_block_data(lastBlockIndex, lastBlock.data)) {
-                            std::cerr << "Failed to read last directory block" << std::endl;
+                            printf("Failed to read last directory block\n");
                             return false;
                         }
                         newBlock.directoryBlock.entries[j] = lastBlock.directoryBlock.entries[lastOffset];
@@ -221,15 +222,15 @@ bool Directory::removeDirectoryEntry(const char* fileName) {
                         // Perform copy-on-write update for the last block.
                         block_index_t newLastBlock = blockBitmap->findNextFree();
                         if (newLastBlock == BLOCK_NULL_VALUE) {
-                            std::cerr << "No free block for copy-on-write update of last block" << std::endl;
+                            printf("No free block for copy-on-write update of last block\n");
                             return false;
                         }
                         if (!blockBitmap->setAllocated(newLastBlock)) {
-                            std::cerr << "Failed to set allocated for new last block" << std::endl;
+                            printf("Failed to set allocated for new last block\n");
                             return false;
                         }
                         if (!blockManager->writeBlock(newLastBlock, lastBlock.data)) {
-                            std::cerr << "Failed to write updated last block" << std::endl;
+                            printf("Failed to write updated last block\n");
                             return false;
                         }
                         // Update the directory inode pointer for the last block.
@@ -247,15 +248,15 @@ bool Directory::removeDirectoryEntry(const char* fileName) {
                 // Now, perform a copy-on-write update for the directory block where deletion occurred.
                 block_index_t newBlockLocation = blockBitmap->findNextFree();
                 if (newBlockLocation == BLOCK_NULL_VALUE) {
-                    std::cerr << "No free block available for copy-on-write directory update" << std::endl;
+                    printf("No free block available for copy-on-write directory update\n");
                     return false;
                 }
                 if (!blockBitmap->setAllocated(newBlockLocation)) {
-                    std::cerr << "Failed to set allocated for new directory block" << std::endl;
+                    printf("Failed to set allocated for new directory block\n");
                     return false;
                 }
                 if (!blockManager->writeBlock(newBlockLocation, newBlock.data)) {
-                    std::cerr << "Failed to write new directory block" << std::endl;
+                    printf("Failed to write new directory block\n");
                     return false;
                 }
                 // Update the directory inode pointer to reference the new copy.
@@ -264,18 +265,18 @@ bool Directory::removeDirectoryEntry(const char* fileName) {
                 // --- Perform copy-on-write update on the parent's inode ---
                 inode_index_t newInodeLocation = inodeBitmap->findNextFree();
                 if (newInodeLocation == NULL_INDEX) {
-                    std::cerr << "Failed to allocate new inode for copy-on-write update in removeDirectoryEntry" << std::endl;
+                    printf("Failed to allocate new inode for copy-on-write update in removeDirectoryEntry\n");
                     return false;
                 }
                 if (!inodeBitmap->setAllocated(newInodeLocation)) {
-                    std::cerr << "Failed to mark new inode as allocated in removeDirectoryEntry" << std::endl;
+                    printf("Failed to mark new inode as allocated in removeDirectoryEntry\n");
                     return false;
                 }
                 // Create a new parent's inode by copying the updated inode.
                 inode_t newParentInode = inode;
                 // Write the new inode to disk.
                 if (!inodeTable->writeInode(newInodeLocation, newParentInode)) {
-                    std::cerr << "Failed to write updated parent's inode to disk in removeDirectoryEntry" << std::endl;
+                    printf("Failed to write updated parent's inode to disk in removeDirectoryEntry\n");
                     return false;
                 }
                 // Log the parent's inode update.
@@ -284,13 +285,13 @@ bool Directory::removeDirectoryEntry(const char* fileName) {
                     payload.inodeUpdate.inodeIndex = getInodeNumber();
                     payload.inodeUpdate.inodeLocation = newInodeLocation;
                     if (!logManager->logOperation(LogOpType::LOG_OP_INODE_UPDATE, &payload)) {
-                        std::cerr << "Failed to log parent's inode update in removeDirectoryEntry" << std::endl;
+                        printf("Failed to log parent's inode update in removeDirectoryEntry\n");
                         return false;
                     }
                 }
                 // Update the inode table to point to the new parent's inode location.
                 if (!inodeTable->setInodeLocation(getInodeNumber(), newInodeLocation)) {
-                    std::cerr << "Failed to update inode table for parent's inode in removeDirectoryEntry" << std::endl;
+                    printf("Failed to update inode table for parent's inode in removeDirectoryEntry\n");
                     return false;
                 }
                 return true;

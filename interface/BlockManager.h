@@ -1,12 +1,15 @@
 #ifndef BLOCK_MANAGER_H
 #define BLOCK_MANAGER_H
 
+#ifdef NOT_KERNEL
 #include "FakeDiskDriver.h"
 #include <vector>
-#include <cstdint>
-#include <mutex>
 #include <iostream>
 #include <algorithm>
+#endif
+
+#include "mutex"
+#include "cstdint"
 
 class BlockManager
 {
@@ -20,7 +23,11 @@ public:
      * @param disk       Reference to the underlying FakeDiskDriver.
      * @param partition  The partition (a slice of the disk) that this BlockManager will manage.
      */
-    BlockManager(FakeDiskDriver& disk, const FakeDiskDriver::Partition& partition);
+    #ifdef NOT_KERNEL
+    BlockManager(FakeDiskDriver& disk, const FakeDiskDriver::Partition& partition, int numBlocks);
+    #else
+    BlockManager(int numBlocks) : numBlocks(numBlocks) {};
+    #endif
 
     /**
      * Reads a file system block (4096 bytes) from the partition.
@@ -40,12 +47,15 @@ public:
 
     uint32_t getNumBlocks() const
     {
-        return partition.sectorCount / sectorsPerBlock;
+        return numBlocks;
     }
 
 private:
+    #ifdef NOT_KERNEL
     FakeDiskDriver& disk;
     FakeDiskDriver::Partition partition;
+    #endif
+    int numBlocks;
     size_t sectorsPerBlock; // Number of 512-byte sectors per 4096-byte block.
     mutable std::mutex blockMutex; // Protects BlockManager state and operations.
 };
