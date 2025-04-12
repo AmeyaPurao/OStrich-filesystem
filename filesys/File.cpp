@@ -13,6 +13,7 @@
 #include "InodeTable.h"
 #include "LogRecord.h"
 
+namespace fs {
 File::File(InodeTable* inodeTable, BitmapManager* inodeBitmap, BitmapManager* blockBitmap, BlockManager* blockManager,
            LogManager* logManager, const uint16_t permissions)
     : inodeTable(inodeTable), inodeBitmap(inodeBitmap), blockBitmap(blockBitmap), blockManager(blockManager), logManager(logManager)
@@ -314,3 +315,5 @@ bool File::read_block_data(const block_index_t blockNum, uint8_t* data) const
 {
     return blockManager->readBlock(getBlockLocation(blockNum), data);
 }
+
+} // namespace fs

@@ -8,6 +8,7 @@
 #include "../interface/BlockManager.h"
 #include "LogRecord.h"
 
+namespace fs {
 
 using block_index_t = uint32_t;
 using inode_index_t = uint32_t;
@@ -136,4 +137,6 @@ typedef union block
     directoryBlock_t directoryBlock;
 } block_t;
 
+} // namespace fs
 #endif //BLOCK_H
+

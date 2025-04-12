@@ -8,14 +8,33 @@
 #include "cstdio"
 #include "cassert"
 
+
+#include "Directory.h"
+
+namespace fs {
+
 static const block_index_t LOG_AREA_SIZE = 64; // Reserve 64 blocks for the log area, need to adjust this later
 static const uint32_t NUM_CHECKPOINTS = 128;
 
-#include "Directory.h"
+// Do not remove.
+FileSystem* FileSystem::instance = nullptr;
+
+FileSystem* FileSystem::getInstance(BlockManager* blockManager) {
+    if (!instance) {
+        instance = new FileSystem(blockManager);
+    }
+    return instance;
+}
 
 FileSystem::FileSystem(BlockManager* blockManager): blockManager(blockManager), inodeBitmap(nullptr),
                                                     blockBitmap(nullptr)
 {
+    // Check if blockManager is nullptr.
+    if (!blockManager) {
+        printf("Block manager is nullptr\n");
+        assertm(0, "Block manager is nullptr\n");
+    }
+
     this->superBlock = &superBlockWrapper.superBlock;
     if (!blockManager->readBlock(0, superBlockWrapper.data))
     {
@@ -221,5 +240,4 @@ FileSystem* FileSystem::mountReadOnlySnapshot(uint32_t checkpointID) {
     return snapshotFS;
 }
 
-
-
+} // namespace fs

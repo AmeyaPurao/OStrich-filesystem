@@ -10,6 +10,8 @@
 
 using namespace std;
 
+namespace fs {
+
 class FakeDiskDriver
 {
 public:
@@ -115,3 +117,5 @@ private:
 };
 
 #endif // FAKE_DISK_DRIVER_H
+
+} // namespace fs

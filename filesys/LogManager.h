@@ -17,7 +17,7 @@
 #define ENTRY_MAGIC 0x3A3B3C3D
 #define CHECKPOINT_MAGIC 0x5A5B5C5D
 
-
+namespace fs {
 
 class LogManager {
 public:
@@ -64,4 +64,5 @@ private:
     uint64_t get_timestamp();
 };
 
+} // namespace fs
 #endif // LOG_MANAGER_H

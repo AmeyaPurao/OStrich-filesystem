@@ -7,8 +7,9 @@
 
 #include "cstdint"
 
-constexpr uint16_t NUM_LOGRECORDS_PER_LOGENTRY = 127;
+namespace fs {
 
+constexpr uint16_t NUM_LOGRECORDS_PER_LOGENTRY = 127;
 
 // Enum for the different log operation types.
 enum class LogOpType : uint16_t {
@@ -74,4 +75,5 @@ typedef struct logEntry {
 
 
 
+} // namespace fs
 #endif //LOGRECORD_H

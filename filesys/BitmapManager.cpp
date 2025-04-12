@@ -6,6 +6,8 @@
 #include "cassert"
 #include "cstdio"
 
+namespace fs {
+
 BitmapManager::BitmapManager(const block_index_t startBlock, const block_index_t numBlocks, const block_index_t size,
                              BlockManager* blockManager, block_index_t offset): startBlock(startBlock),
     numBlocks(numBlocks), size(size),
@@ -128,3 +130,5 @@ bool BitmapManager::setUnallocated(block_index_t index)
     dirty = true;
     return true;
 }
+
+} // namespace fs

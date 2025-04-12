@@ -1,5 +1,7 @@
 #include "BlockManager.h"
 
+namespace fs {
+
 BlockManager::BlockManager(FakeDiskDriver& disk, const FakeDiskDriver::Partition& partition, int numBlocks)
     : disk(disk), partition(partition), numBlocks(numBlocks)
 {
@@ -62,3 +64,5 @@ bool BlockManager::writeBlock(const size_t blockIndex, const uint8_t* buffer)
     }
     return true;
 }
+
+} // namespace fs

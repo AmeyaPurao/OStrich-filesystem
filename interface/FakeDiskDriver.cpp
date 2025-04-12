@@ -4,6 +4,8 @@
 
 using namespace std;
 
+namespace fs {
+
 // Constructor: Opens (or creates) the file and ensures its size.
 FakeDiskDriver::FakeDiskDriver(const string& filename, size_t numSectors,
                                chrono::milliseconds simulatedLatency)
@@ -201,3 +203,5 @@ vector<FakeDiskDriver::Partition> FakeDiskDriver::listPartitions() const
     lock_guard<mutex> lock(partitionMutex);
     return partitions;
 }
+
+} // namespace fs

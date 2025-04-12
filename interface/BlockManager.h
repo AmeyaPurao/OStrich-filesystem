@@ -11,6 +11,8 @@
 #include "mutex"
 #include "cstdint"
 
+namespace fs {
+
 class BlockManager
 {
 public:
@@ -59,5 +61,7 @@ private:
     size_t sectorsPerBlock; // Number of 512-byte sectors per 4096-byte block.
     mutable std::mutex blockMutex; // Protects BlockManager state and operations.
 };
+
+} // namespace fs
 
 #endif // BLOCK_MANAGER_H

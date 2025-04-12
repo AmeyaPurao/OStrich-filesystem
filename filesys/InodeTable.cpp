@@ -7,6 +7,8 @@
 #include "LogManager.h"
 #include "LogRecord.h"
 
+namespace fs {
+
 InodeTable::InodeTable(const block_index_t startBlock, const inode_index_t numBlocks, const inode_index_t size, const inode_index_t inodeRegionStart,
                        BlockManager* blockManager): startBlock(startBlock), numBlocks(numBlocks), size(size), inodeRegionStart(inodeRegionStart),
                                                     blockManager(blockManager)
@@ -201,3 +203,4 @@ InodeTable* InodeTable::createSnapshotFromCheckpoint(block_index_t checkpointBlo
     return snapshot;
 }
 
+} // namespace fs

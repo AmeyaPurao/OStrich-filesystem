@@ -8,6 +8,8 @@
 #include "LogManager.h"
 #include "vector"
 
+namespace fs {
+
 class Directory : public File
 {
 public:
@@ -30,5 +32,5 @@ private:
     static Directory* convertFile(File* file);
 };
 
-
+} // namespace fs
 #endif //DIRECTORY_H

@@ -8,7 +8,7 @@
 #include "Block.h"
 #include "../interface/BlockManager.h"
 
-
+namespace fs {
 class InodeTable
 {
 public:
@@ -49,5 +49,5 @@ private:
     inode_index_t* snapshotMapping;  // Native array for snapshot mappings
 };
 
-
+} // namespace fs
 #endif //INODETABLE_H

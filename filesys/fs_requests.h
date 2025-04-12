@@ -5,6 +5,8 @@
 #include "filesys/Directory.h"
 #include "ring_buffer.h"
 
+namespace fs {
+
 // Enum for different request types
 typedef enum {
     FS_REQ_ADD_DIR,
@@ -146,5 +148,7 @@ fs_response_t fs_req_read_dir(fs_req_t* req);
 fs_response_t fs_req_open(fs_req_t* req);
 fs_response_t fs_req_write(fs_req_t* req);
 fs_response_t fs_req_read(fs_req_t* req);
+
+} // namespace fs
 
 #endif // FS_REQUESTS_H

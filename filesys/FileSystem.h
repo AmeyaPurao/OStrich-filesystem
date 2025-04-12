@@ -11,10 +11,18 @@
 #include "../interface/BlockManager.h"
 #include "LogManager.h"
 
-
+// Make filesystem a singleton (at most one global instance is allowed to exist).
+// Don't call constructor directly, use getInstance instead.
+namespace fs {
 class FileSystem {
 public:
-    explicit FileSystem(BlockManager *blockManager);
+    // Delete copy constructor and assignment operator.
+    FileSystem(FileSystem &other) = delete;
+    void operator=(const FileSystem &) = delete;
+
+    // Get the singleton instance.
+    static FileSystem* getInstance(BlockManager *blockManager = nullptr);
+
     Directory* getRootDirectory() const;
     bool createCheckpoint();
 
@@ -22,8 +30,11 @@ public:
     // Returns a new FileSystem instance representing the snapshot, or nullptr on failure.
     FileSystem* mountReadOnlySnapshot(uint32_t checkpointID);
 
-
 private:
+    // Constructor is private, so it can't be called directly.
+    explicit FileSystem(BlockManager *blockManager);
+    static FileSystem* instance;
+
     bool readOnly = false; // default false
 
     BlockManager *blockManager;
@@ -42,6 +53,5 @@ private:
     Directory* createRootInode();
 };
 
-
-
+} // namespace fs
 #endif //FILESYSTEM_H

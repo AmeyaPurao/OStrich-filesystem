@@ -8,7 +8,7 @@
 #include "InodeTable.h"
 #include "LogManager.h"
 
-
+namespace fs {
 class File
 {
 public:
@@ -47,5 +47,5 @@ private:
     block_index_t getBlockLocation(block_index_t blockNum) const;
 };
 
-
+} // namespace fs
 #endif //FILE_H

@@ -8,6 +8,8 @@
 #include "cstdio"
 #include "vector"
 
+namespace fs {
+
 Directory::Directory(InodeTable* inodeTable, BitmapManager* inodeBitmap, BitmapManager* blockBitmap,
                      BlockManager* blockManager, LogManager* logManager, const uint16_t permissions): File(
     inodeTable, inodeBitmap, blockBitmap, blockManager, logManager, permissions)
@@ -392,3 +394,5 @@ Directory* Directory::convertFile(File* file)
     delete file;
     return dir;
 }
+
+} // namespace fs

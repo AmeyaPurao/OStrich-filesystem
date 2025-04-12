@@ -5,6 +5,8 @@
 
 // extern "C" void klog(const char *fmt, ...); // Prototype for kernel logging.
 
+namespace fs {
+
 LogManager::LogManager(BlockManager *blockManager, BitmapManager *blockBitmap, InodeTable *inode_table,
                        uint32_t startBlock, uint32_t numBlocks, uint64_t latestSystemSeq)
     : globalSequence(latestSystemSeq),
@@ -369,3 +371,4 @@ uint64_t LogManager::get_timestamp() {
     return ++dummyTime;
 }
 
+} // namespace fs

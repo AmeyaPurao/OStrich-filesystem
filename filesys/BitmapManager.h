@@ -9,6 +9,8 @@
 
 #define NULL_INDEX UINT32_MAX
 
+namespace fs {
+
 class BitmapManager
 {
 public:
@@ -35,5 +37,5 @@ private:
     block_index_t additionalOffset;
 };
 
-
+} // namespace fs
 #endif //BITMAPMANAGER_H
