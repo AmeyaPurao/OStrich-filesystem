@@ -7,7 +7,7 @@
 
 void runFilesystemSetupTest(BlockManager& blockManager)
 {
-    FileSystem fileSystem(&blockManager);
+    FileSystem filesystem = *FileSystem::getInstance(&blockManager);
     std::cout << "Loading root directory" << std::endl;
     auto* rootDir = fileSystem.getRootDirectory();
 
@@ -70,6 +70,9 @@ void runFilesystemSetupTest(BlockManager& blockManager)
     delete dir2;
     delete dir3;
     delete rootDir;
+
+    // kill singleton instance
+    delete FileSystem::getInstance();
 }
 
 void displayTree(const Directory* dir, const std::string& curPath)
@@ -132,7 +135,7 @@ void displayFilesystem(BlockManager& blockManager)
 void testSnapshot(BlockManager& blockManager)
 {
     // Create live filesystem instance and display its state.
-    FileSystem liveFS(&blockManager);
+    FileSystem liveFS = *FileSystem::getInstance(&blockManager);
     Directory* liveRoot = liveFS.getRootDirectory();
     std::cout << "Live filesystem:" << std::endl;
     displayTree(liveRoot, "    /");
