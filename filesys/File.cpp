@@ -22,7 +22,7 @@ File::File(InodeTable* inodeTable, BitmapManager* inodeBitmap, BitmapManager* bl
     if (!inodeBitmap->setAllocated(inodeLocation))
     {
         printf("Could not set inode bit\n");
-        assertm(0, "Could not set inode bit\n");
+        assert(0);
     }
     inode.size = 0;
     inode.blockCount = 0;
@@ -49,14 +49,14 @@ File::File(InodeTable* inodeTable, BitmapManager* inodeBitmap, BitmapManager* bl
     if (!inodeTable->writeInode(inodeLocation, inode))
     {
         printf("Could not write inode\n");
-        assertm(0, "Could not write inode\n");
+        assert(0);
     }
 
     inodeNumber = inodeTable->getFreeInodeNumber();
     if (inodeNumber == INODE_NULL_VALUE)
     {
         printf("Could not get free inode number\n");
-        assertm(0, "Could not get free inode number\n");
+        assert(0);
     }
     LogRecordPayload payload{};
     payload.inodeAdd.inodeIndex = inodeNumber;
@@ -65,7 +65,7 @@ File::File(InodeTable* inodeTable, BitmapManager* inodeBitmap, BitmapManager* bl
     if (!inodeTable->setInodeLocation(inodeNumber, inodeLocation))
     {
         printf("Could not set inode location\n");
-        assertm(0, "Could not set inode location\n");
+        assert(0);
     }
 
     // std::cout << "Creating file with permissions: " << permissions << " with number " << inodeNumber << " at " <<
@@ -79,11 +79,11 @@ File::File(inode_index_t inodeNumber, InodeTable* inodeTable, BitmapManager* ino
     inodeLocation = inodeTable->getInodeLocation(inodeNumber);
     if (inodeLocation == INODE_NULL_VALUE)
     {
-        assertm(0, "Inode not found\n");
+        assert(0);
     }
     if (!inodeTable->readInode(inodeLocation, inode))
     {
-        assertm(0, "Could not read inode\n");
+        assert(0);
     }
 }
 
@@ -113,7 +113,7 @@ block_index_t File::getBlockLocation(const block_index_t blockNum) const
     {
         return inode.directBlocks[blockNum];
     }
-    assertm(0, "Indirect blocks not implemented\n");
+    assert(0);
 }
 
 bool File::write_block_data(const block_index_t blockNum, const uint8_t* data)
@@ -138,7 +138,7 @@ bool File::write_new_block_data(const uint8_t* data)
     }
     else
     {
-        assertm(0, "Indirect blocks not implemented\n");
+        assert(0);
     }
     inode.blockCount++;
     if (!blockManager->writeBlock(newBlock, data))

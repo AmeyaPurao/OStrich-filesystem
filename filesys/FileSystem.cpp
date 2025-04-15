@@ -32,14 +32,14 @@ FileSystem::FileSystem(BlockManager* blockManager): blockManager(blockManager), 
     // Check if blockManager is nullptr.
     if (!blockManager) {
         printf("Block manager is nullptr\n");
-        assertm(0, "Block manager is nullptr\n");
+        assert(0);
     }
 
     this->superBlock = &superBlockWrapper.superBlock;
     if (!blockManager->readBlock(0, superBlockWrapper.data))
     {
         printf("Could not read superblock\n");
-        assertm(0, "Could not read superblock\n");
+        assert(0);
     }
 
     if (superBlock->magic != MAGIC_NUMBER)
@@ -85,7 +85,7 @@ void FileSystem::createFilesystem()
     if (remainingBlocks < superBlock->dataBlockBitmapSize + LOG_AREA_SIZE)
     {
         printf("Not enough blocks remaining for data and log areas.\n");
-        assertm(0, "Insufficient space for log area\n");
+        assert(0);
     }
     superBlock->dataBlockCount = remainingBlocks - superBlock->dataBlockBitmapSize - LOG_AREA_SIZE;
     superBlock->freeDataBlockCount = superBlock->dataBlockCount;
@@ -119,7 +119,7 @@ void FileSystem::createFilesystem()
         if (!blockManager->writeBlock(superBlock->dataBlockBitmap + i, zeroBlock.data))
         {
             printf("Could not write block bitmap\n");
-            assertm(0, "Could not write block bitmap\n");
+            assert(0);
         }
     }
 
@@ -128,7 +128,7 @@ void FileSystem::createFilesystem()
         if (!blockManager->writeBlock(superBlock->inodeBitmap + i, zeroBlock.data))
         {
             printf("Could not write inode bitmap\n");
-            assertm(0, "Could not write inode bitmap\n");
+            assert(0);
         }
     }
 
@@ -137,7 +137,7 @@ void FileSystem::createFilesystem()
     if (!blockManager->writeBlock(0, superBlockWrapper.data))
     {
         printf("Could not write superblock\n");
-        assertm(0, "Could not write superblock\n");
+        assert(0);
     }
 }
 

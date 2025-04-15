@@ -22,7 +22,7 @@ void BitmapManager::loadBitmap(const block_index_t offset)
     if (offset >= numBlocks)
     {
         printf("Offset out of bounds\n");
-        assertm(0, "Offset out of bounds\n");
+        assert(0);
     }
     if (dirty)
     {
@@ -31,7 +31,7 @@ void BitmapManager::loadBitmap(const block_index_t offset)
     if (!blockManager->readBlock(startBlock + offset, loadedBlock.data))
     {
         printf("Could not read bitmap block\n");
-        assertm(0, "Could not read bitmap block\n");
+        assert(0);
     }
     dirty = false;
     loadedBlockIndex = offset;
@@ -48,7 +48,7 @@ bool BitmapManager::saveBitmap()
     if (!blockManager->writeBlock(startBlock + loadedBlockIndex, loadedBlock.data))
     {
         printf("Could not write bitmap block\n");
-        assertm(0, "Could not write bitmap block\n");
+        assert(0);
     }
     dirty = false;
     return true;
@@ -90,7 +90,7 @@ bool BitmapManager::setAllocated(block_index_t index)
     {
         printf("Index out of bounds for bitmap\n");
         return false;
-        // assertm(0, "Index out of bounds for bitmap\n");
+        // assert(0);
     }
 
     const block_index_t targetOffset = index / 8 / BlockManager::BLOCK_SIZE;
@@ -114,7 +114,7 @@ bool BitmapManager::setUnallocated(block_index_t index)
     {
         printf("Index out of bounds for bitmap\n");
         return false;
-        // assertm(0, "Index out of bounds for bitmap\n");
+        // assert(0);
     }
 
     const block_index_t targetOffset = index / 8 / BlockManager::BLOCK_SIZE;
