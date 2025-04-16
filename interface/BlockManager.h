@@ -28,7 +28,7 @@ public:
     #ifdef NOT_KERNEL
     BlockManager(FakeDiskDriver& disk, const FakeDiskDriver::Partition& partition, int numBlocks);
     #else
-    BlockManager(int numBlocks) : numBlocks(numBlocks) {};
+    BlockManager(int numBlocks, int startSector) : numBlocks(numBlocks), startSector(startSector) {};
     #endif
 
     /**
@@ -58,6 +58,7 @@ private:
     FakeDiskDriver::Partition partition;
     #endif
     int numBlocks;
+    int startSector;
     size_t sectorsPerBlock; // Number of 512-byte sectors per 4096-byte block.
     mutable std::mutex blockMutex; // Protects BlockManager state and operations.
 };
