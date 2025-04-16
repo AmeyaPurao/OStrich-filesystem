@@ -4,12 +4,13 @@
 #include "interface/FakeDiskDriver.h"
 #include "filesys/Block.h"
 #include "filesys/FileSystem.h"
-
+using namespace fs;
 void runFilesystemSetupTest(BlockManager& blockManager)
 {
-    FileSystem filesystem = *FileSystem::getInstance(&blockManager);
+    FileSystem* fileSystem = FileSystem::getInstance(&blockManager);
+    std::cout << "Filesystem pointer address is " << fileSystem << std::endl;
     std::cout << "Loading root directory" << std::endl;
-    auto* rootDir = fileSystem.getRootDirectory();
+    auto* rootDir = fileSystem->getRootDirectory();
 
     std::cout << "Creating new directory /dir1" << std::endl;
     Directory* dir1 = rootDir->createDirectory("dir1");
@@ -25,7 +26,7 @@ void runFilesystemSetupTest(BlockManager& blockManager)
     Directory* dir2 = rootDir->createDirectory("dir2");
 
     std::cout << "Creating a new checkpoint" << std::endl;
-    fileSystem.createCheckpoint();
+    fileSystem->createCheckpoint();
 
     std::cout << "Creating new directory /dir2/dir3" << std::endl;
     Directory* dir3 = dir2->createDirectory("dir3");
@@ -51,7 +52,7 @@ void runFilesystemSetupTest(BlockManager& blockManager)
     delete[] buffer;
 
     std::cout << "Creating a new checkpoint" << std::endl;
-    fileSystem.createCheckpoint();
+    fileSystem->createCheckpoint();
 
     std::cout << "Changing data in largefile" << std::endl;
     auto newTestData = " - new data! - ";
@@ -72,7 +73,7 @@ void runFilesystemSetupTest(BlockManager& blockManager)
     delete rootDir;
 
     // kill singleton instance
-    delete FileSystem::getInstance();
+    //delete FileSystem::getInstance();
 }
 
 void displayTree(const Directory* dir, const std::string& curPath)
@@ -111,12 +112,12 @@ void displayTree(const Directory* dir, const std::string& curPath)
 
 void displayFilesystem(BlockManager& blockManager)
 {
-    FileSystem fileSystem(&blockManager);
+    FileSystem* fileSystem = FileSystem::getInstance(&blockManager);
     std::cout << "Loading root directory..." << std::endl;
-    auto* rootDir = fileSystem.getRootDirectory();
+    auto* rootDir = fileSystem->getRootDirectory();
     std::cout << "/" << std::endl;
     displayTree(rootDir, "    /");
-    FileSystem* snapshotFS = fileSystem.mountReadOnlySnapshot(2);
+    FileSystem* snapshotFS = fileSystem->mountReadOnlySnapshot(2);
     if (snapshotFS == nullptr) {
         std::cerr << "Failed to mount read-only snapshot." << std::endl;
         return;
@@ -135,15 +136,16 @@ void displayFilesystem(BlockManager& blockManager)
 void testSnapshot(BlockManager& blockManager)
 {
     // Create live filesystem instance and display its state.
-    FileSystem liveFS = *FileSystem::getInstance(&blockManager);
-    Directory* liveRoot = liveFS.getRootDirectory();
+    FileSystem *liveFS = FileSystem::getInstance(&blockManager);
+    std::cout << "FS pointer address is " << liveFS << std::endl;
+    Directory* liveRoot = liveFS->getRootDirectory();
     std::cout << "Live filesystem:" << std::endl;
     displayTree(liveRoot, "    /");
     delete liveRoot;
 
     // Mount a read-only snapshot based on a checkpoint.
     // (Adjust the checkpointID as needed; here we use 2 as an example.)
-    FileSystem* snapshotFS = liveFS.mountReadOnlySnapshot(2);
+    FileSystem* snapshotFS = liveFS->mountReadOnlySnapshot(2);
     if (snapshotFS == nullptr) {
         std::cerr << "Failed to mount read-only snapshot." << std::endl;
         return;
@@ -153,7 +155,7 @@ void testSnapshot(BlockManager& blockManager)
     displayTree(snapRoot, "    /");
     delete snapRoot;
 
-    FileSystem* snapshotFS2 = liveFS.mountReadOnlySnapshot(3);
+    FileSystem* snapshotFS2 = liveFS->mountReadOnlySnapshot(3);
     if (snapshotFS2 == nullptr) {
         std::cerr << "Failed to mount read-only snapshot." << std::endl;
         return;
@@ -188,7 +190,7 @@ int main()
         std::cerr << "Error: Failed to create partition" << std::endl;
         return 1;
     }
-    BlockManager block_manager(disk, disk.listPartitions()[0]);
+    BlockManager block_manager(disk, disk.listPartitions()[0], 1024);
     block_t emptyBlock{};
     block_manager.writeBlock(0, emptyBlock.data); // write empty superblock to force creation of new fs
 
