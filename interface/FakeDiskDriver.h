@@ -116,6 +116,8 @@ private:
     bool ensureDiskSize();
 };
 
-#endif // FAKE_DISK_DRIVER_H
+
 
 } // namespace fs
+
+#endif // FAKE_DISK_DRIVER_H

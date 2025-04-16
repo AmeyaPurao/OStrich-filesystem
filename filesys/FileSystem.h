@@ -30,6 +30,12 @@ public:
     // Returns a new FileSystem instance representing the snapshot, or nullptr on failure.
     FileSystem* mountReadOnlySnapshot(uint32_t checkpointID);
 
+    // make public for now
+    InodeTable *inodeTable;
+    BitmapManager *inodeBitmap;
+    BitmapManager *blockBitmap;
+    BlockManager *blockManager;
+
 private:
     // Constructor is private, so it can't be called directly.
     explicit FileSystem(BlockManager *blockManager);
@@ -37,11 +43,10 @@ private:
 
     bool readOnly = false; // default false
 
-    BlockManager *blockManager;
+
     LogManager* logManager;
-    BitmapManager *inodeBitmap;
-    BitmapManager *blockBitmap;
-    InodeTable *inodeTable;
+
+
 
     block_t superBlockWrapper{};
     superBlock_t* superBlock;
