@@ -61,6 +61,10 @@ File::File(InodeTable* inodeTable, BitmapManager* inodeBitmap, BitmapManager* bl
     LogRecordPayload payload{};
     payload.inodeAdd.inodeIndex = inodeNumber;
     payload.inodeAdd.inodeLocation = inodeLocation;
+    if (!logManager) {
+        printf("log manager not initialized\n");
+        assert(0);
+    }
     logManager->logOperation(LogOpType::LOG_OP_INODE_ADD, &payload);
     if (!inodeTable->setInodeLocation(inodeNumber, inodeLocation))
     {
@@ -73,8 +77,8 @@ File::File(InodeTable* inodeTable, BitmapManager* inodeBitmap, BitmapManager* bl
 }
 
 File::File(inode_index_t inodeNumber, InodeTable* inodeTable, BitmapManager* inodeBitmap, BitmapManager* blockBitmap,
-           BlockManager* blockManager): inodeTable(inodeTable), inodeBitmap(inodeBitmap), blockBitmap(blockBitmap),
-                                        blockManager(blockManager), inodeNumber(inodeNumber)
+           BlockManager* blockManager, LogManager* logManager): inodeTable(inodeTable), inodeBitmap(inodeBitmap), blockBitmap(blockBitmap),
+                                        blockManager(blockManager), logManager(logManager), inodeNumber(inodeNumber)
 {
     inodeLocation = inodeTable->getInodeLocation(inodeNumber);
     if (inodeLocation == INODE_NULL_VALUE)

@@ -56,7 +56,7 @@ FileSystem::FileSystem(BlockManager* blockManager): blockManager(blockManager), 
 
 Directory* FileSystem::getRootDirectory() const
 {
-    return new Directory(0, inodeTable, inodeBitmap, blockBitmap, blockManager);
+    return new Directory(0, inodeTable, inodeBitmap, blockBitmap, blockManager, logManager);
 }
 
 // ReSharper disable once CppMemberFunctionMayBeConst
@@ -143,7 +143,6 @@ void FileSystem::createFilesystem()
 
 void FileSystem::loadFilesystem()
 {
-    // printf("Loading filesystem\n");
     // std::cout << "Size: " << superBlock->size << std::endl;
     // std::cout << "Inode region start: " << superBlock->inodeRegionStart << std::endl;
     // std::cout << "Data block region start: " << superBlock->dataBlockRegionStart << std::endl;

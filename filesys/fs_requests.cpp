@@ -13,7 +13,7 @@ namespace fs {
         fs_response_t resp;
         inode_index_t dir_inode_num =  req->data.add_dir.dir;
         Directory parent_dir = Directory(dir_inode_num, fileSystem->inodeTable, fileSystem->inodeBitmap,
-                fileSystem->blockBitmap, fileSystem->blockManager);
+                fileSystem->blockBitmap, fileSystem->blockManager, fileSystem->logManager);
         parent_dir.addDirectoryEntry(req->data.add_dir.name, req->data.add_dir.file_to_add);
 
         resp.req_type = FS_REQ_ADD_DIR;
@@ -25,7 +25,7 @@ namespace fs {
         fs_response_t resp;
         inode_index_t dir_inode_num = req->data.create.cwd;
         Directory parent_dir = Directory(dir_inode_num, fileSystem->inodeTable, fileSystem->inodeBitmap,
-                fileSystem->blockBitmap, fileSystem->blockManager);
+                fileSystem->blockBitmap, fileSystem->blockManager, fileSystem->logManager);
         //TODO need to modify createFile()/createDirectory to take permissions and stuff
 
         void* newFile = nullptr;
@@ -58,7 +58,7 @@ namespace fs {
         fs_response_t resp;
         inode_index_t dir_inode_num = req->data.remove.inode_index;
         Directory parent_dir = Directory(dir_inode_num, fileSystem->inodeTable, fileSystem->inodeBitmap,
-                fileSystem->blockBitmap, fileSystem->blockManager);
+                fileSystem->blockBitmap, fileSystem->blockManager, fileSystem->logManager);
         parent_dir.removeDirectoryEntry(req->data.remove.name);
         resp.req_type = FS_REQ_REMOVE_FILE;
         resp.data.remove_file.status = FS_RESP_SUCCESS;

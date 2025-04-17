@@ -15,7 +15,7 @@ public:
     File(InodeTable* inodeTable, BitmapManager* inodeBitmap, BitmapManager* blockBitmap, BlockManager* blockManager, LogManager* logManager,
          uint16_t permissions = 0);
     File(inode_index_t inodeNumber, InodeTable* inodeTable, BitmapManager* inodeBitmap, BitmapManager* blockBitmap,
-         BlockManager* blockManager);
+         BlockManager* blockManager, LogManager* logManager);
     explicit File(const File* file);
     inode_index_t getInodeNumber() const;
     bool isDirectory() const;

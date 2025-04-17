@@ -35,6 +35,7 @@ public:
     BitmapManager *inodeBitmap;
     BitmapManager *blockBitmap;
     BlockManager *blockManager;
+    LogManager* logManager;
 
 private:
     // Constructor is private, so it can't be called directly.
@@ -44,7 +45,6 @@ private:
     bool readOnly = false; // default false
 
 
-    LogManager* logManager;
 
 
 

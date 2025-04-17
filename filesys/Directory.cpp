@@ -17,8 +17,8 @@ Directory::Directory(InodeTable* inodeTable, BitmapManager* inodeBitmap, BitmapM
 }
 
 Directory::Directory(inode_index_t inodeNum, InodeTable* inodeTable, BitmapManager* inodeBitmap,
-                     BitmapManager* blockBitmap, BlockManager* blockManager): File(
-    inodeNum, inodeTable, inodeBitmap, blockBitmap, blockManager)
+                     BitmapManager* blockBitmap, BlockManager* blockManager,  LogManager* logManager): File(
+    inodeNum, inodeTable, inodeBitmap, blockBitmap, blockManager, logManager)
 {
 }
 
@@ -375,7 +375,7 @@ File* Directory::getFile(const char* name) const
     {
         return nullptr;
     }
-    File* file = new File(inodeNumber, inodeTable, inodeBitmap, blockBitmap, blockManager);
+    File* file = new File(inodeNumber, inodeTable, inodeBitmap, blockBitmap, blockManager, logManager);
     if (file->isDirectory())
     {
         return convertFile(file);

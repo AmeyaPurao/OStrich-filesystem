@@ -17,7 +17,7 @@ public:
               BlockManager* blockManager, LogManager* logManager,
               uint16_t permissions = DIRECTORY_MASK);
     Directory(inode_index_t inodeNum, InodeTable* inodeTable, BitmapManager* inodeBitmap, BitmapManager* blockBitmap,
-              BlockManager* blockManager);
+              BlockManager* blockManager, LogManager* logManager);
     inode_index_t getDirectoryEntry(const char* fileName) const;
     bool addDirectoryEntry(const char* fileName, inode_index_t fileNum);
     bool removeDirectoryEntry(const char* fileName);
