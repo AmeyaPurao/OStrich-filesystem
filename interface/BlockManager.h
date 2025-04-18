@@ -6,9 +6,9 @@
 #include <vector>
 #include <iostream>
 #include <algorithm>
+#include <mutex>
 #endif
 
-#include "mutex"
 #include "cstdint"
 
 namespace fs {
@@ -61,12 +61,12 @@ private:
     #ifdef NOT_KERNEL
     FakeDiskDriver& disk;
     FakeDiskDriver::Partition partition;
+    mutable std::mutex blockMutex; // Protects BlockManager state and operations.
     #endif
     int numBlocks;
     int numSectors;
     int startSector;
     size_t sectorsPerBlock; // Number of 512-byte sectors per 4096-byte block.
-    mutable std::mutex blockMutex; // Protects BlockManager state and operations.
 };
 
 } // namespace fs
