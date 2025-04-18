@@ -1,2 +1,13 @@
-cmake-build-debug
+# Intellij
 .idea
+
+# CMake
+cmake-build-debug
+CMakeCache.txt
+CMakeFiles
+cmake_install.cmake
+Makefile
+
+# Mock Filesystem
+MockFilesys
+OStrich_Hard_Drive
