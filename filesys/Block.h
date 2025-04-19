@@ -21,6 +21,7 @@ constexpr inode_index_t INODE_NULL_VALUE = UINT32_MAX;
 constexpr uint16_t NUM_DIRECT_BLOCKS = 15;
 constexpr uint16_t NUM_INDIRECT_BLOCKS = 10;
 constexpr uint16_t NUM_DOUBLE_INDIRECT_BLOCKS = 2;
+constexpr uint16_t NUM_BLOCKS_PER_INDIRECT_BLOCK = BlockManager::BLOCK_SIZE / sizeof(block_index_t);
 constexpr uint16_t NUM_CHECKPOINTENTRIES_PER_CHECKPOINT = 504;
 
 constexpr uint16_t DIRECTORY_MASK = 1 << 9;
@@ -47,8 +48,8 @@ typedef struct inodeBlock
 
 typedef struct directBlock
 {
-    block_index_t blockNumbers[1024];
-} directBlock_t;
+    block_index_t blockNumbers[NUM_BLOCKS_PER_INDIRECT_BLOCK];
+} indirectBlock_t;
 
 
 typedef struct superBlock
@@ -128,7 +129,7 @@ typedef union block
 {
     uint8_t data[4096];
     inodeBlock_t inodeBlock;
-    directBlock_t directBlock;
+    indirectBlock_t indirectBlock;
     logEntry_t logEntry;
     checkpointBlock_t checkpointBlock;
     superBlock_t superBlock;

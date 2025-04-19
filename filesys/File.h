@@ -45,6 +45,7 @@ protected:
 
 private:
     block_index_t getBlockLocation(block_index_t blockNum) const;
+    block_index_t allocateAndWriteBlock(const uint8_t* data);
 };
 
 } // namespace fs

@@ -5,6 +5,7 @@
 #include "filesys/Block.h"
 #include "filesys/FileSystem.h"
 using namespace fs;
+
 void runFilesystemSetupTest(BlockManager& blockManager)
 {
     FileSystem* fileSystem = FileSystem::getInstance(&blockManager);
@@ -22,8 +23,11 @@ void runFilesystemSetupTest(BlockManager& blockManager)
     const char* testData = "testing!";
     file1->write_at(0, (uint8_t*)testData, strlen(testData) + 1);
 
+    // exit(0);
+
     std::cout << "Creating new directory /dir2" << std::endl;
     Directory* dir2 = rootDir->createDirectory("dir2");
+
 
     std::cout << "Creating a new checkpoint" << std::endl;
     fileSystem->createCheckpoint();
@@ -49,6 +53,22 @@ void runFilesystemSetupTest(BlockManager& blockManager)
     }
     buffer[BUFFER_SIZE - 1] = '\0';
     largeFile->write_at(0, (uint8_t*)buffer, BUFFER_SIZE);
+
+    std::cout << "Creating new file /dir2/dir3/extralargefile" << std::endl;
+    File* extraLargeFile = dir3->createFile("extralargefile");
+
+    std::cout << "Writing >NUM_DIRECT_BLOCKS*BLOCK_SIZE bytes to extralargefile" << std::endl;
+    constexpr uint64_t EXTRA_LARGE_FILE_SIZE = (NUM_DIRECT_BLOCKS * BlockManager::BLOCK_SIZE) + (10 *
+        BlockManager::BLOCK_SIZE);
+    uint64_t remainingBytes = EXTRA_LARGE_FILE_SIZE;
+    uint64_t curOffset = 0;
+    while (remainingBytes > 0)
+    {
+        uint64_t toWrite = std::min(remainingBytes, BUFFER_SIZE - 1);
+        extraLargeFile->write_at(curOffset, (uint8_t*)buffer, toWrite);
+        curOffset += toWrite;
+        remainingBytes -= toWrite;
+    }
     delete[] buffer;
 
     std::cout << "Creating a new checkpoint" << std::endl;
@@ -61,7 +81,6 @@ void runFilesystemSetupTest(BlockManager& blockManager)
     std::cout << "Deleting /dir2/tmpfile" << std::endl;
     dir2->removeDirectoryEntry("tmpfile");
     delete tmpFile;
-
 
 
     delete file1;
@@ -78,10 +97,14 @@ void runFilesystemSetupTest(BlockManager& blockManager)
 
 void displayTree(const Directory* dir, const std::string& curPath)
 {
+    // std::cout << "Displaying tree for cur path: " << curPath << std::endl;
     const std::vector<char*> entries = dir->listDirectoryEntries();
+    // std::cout << "Number of entries: " << entries.size() << std::endl;
     for (const auto entry : entries)
     {
+        // std::cout << "Iterating over entry: " << entry << std::endl;
         File* file = dir->getFile(entry);
+        // std::cout << "Got file object: " << file << std::endl;
         if (file->isDirectory())
         {
             std::cout << curPath << entry << " (directory)" << std::endl;
@@ -89,13 +112,29 @@ void displayTree(const Directory* dir, const std::string& curPath)
         }
         else
         {
-            if (file->getSize() > 0)
+            uint64_t fileSize = file->getSize();
+            if (fileSize > 0)
             {
-                char* data = new char[file->getSize()];
-                file->read_at(0, reinterpret_cast<uint8_t*>(data), file->getSize());
-                data[file->getSize() - 1] = '\0';
-                std::cout << curPath << entry << " (file: " << data << ")" << std::endl;
-                delete[] data;
+                if (fileSize > 40)
+                {
+                    char* data = new char[44];
+                    file->read_at(0, reinterpret_cast<uint8_t*>(data), 40);
+                    data[40] = '.';
+                    data[41] = '.';
+                    data[42] = '.';
+                    data[43] = '\0';
+                    std::cout << curPath << entry << " (file - truncated from " << fileSize << ": " << data << ")" <<
+                        std::endl;
+                }
+                else
+                {
+                    char* data = new char[file->getSize()];
+                    file->read_at(0, reinterpret_cast<uint8_t*>(data), file->getSize());
+                    data[file->getSize() - 1] = '\0';
+                    std::cout << curPath << entry << " (file: " << data << ")" << std::endl;
+                    delete[] data;
+                }
+                // exit(0);
             }
             else
             {
@@ -118,7 +157,8 @@ void displayFilesystem(BlockManager& blockManager)
     std::cout << "/" << std::endl;
     displayTree(rootDir, "    /");
     FileSystem* snapshotFS = fileSystem->mountReadOnlySnapshot(2);
-    if (snapshotFS == nullptr) {
+    if (snapshotFS == nullptr)
+    {
         std::cerr << "Failed to mount read-only snapshot." << std::endl;
         return;
     }
@@ -136,7 +176,7 @@ void displayFilesystem(BlockManager& blockManager)
 void testSnapshot(BlockManager& blockManager)
 {
     // Create live filesystem instance and display its state.
-    FileSystem *liveFS = FileSystem::getInstance(&blockManager);
+    FileSystem* liveFS = FileSystem::getInstance(&blockManager);
     std::cout << "FS pointer address is " << liveFS << std::endl;
     Directory* liveRoot = liveFS->getRootDirectory();
     std::cout << "Live filesystem:" << std::endl;
@@ -146,7 +186,8 @@ void testSnapshot(BlockManager& blockManager)
     // Mount a read-only snapshot based on a checkpoint.
     // (Adjust the checkpointID as needed; here we use 2 as an example.)
     FileSystem* snapshotFS = liveFS->mountReadOnlySnapshot(2);
-    if (snapshotFS == nullptr) {
+    if (snapshotFS == nullptr)
+    {
         std::cerr << "Failed to mount read-only snapshot." << std::endl;
         return;
     }
@@ -156,7 +197,8 @@ void testSnapshot(BlockManager& blockManager)
     delete snapRoot;
 
     FileSystem* snapshotFS2 = liveFS->mountReadOnlySnapshot(3);
-    if (snapshotFS2 == nullptr) {
+    if (snapshotFS2 == nullptr)
+    {
         std::cerr << "Failed to mount read-only snapshot." << std::endl;
         return;
     }

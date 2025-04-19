@@ -48,6 +48,17 @@ inode_index_t Directory::getDirectoryEntry(const char* fileName) const
 
 bool Directory::addDirectoryEntry(const char* fileName, inode_index_t fileNum)
 {
+    // std::cout << "Adding directory entry: " << fileName << " with inode number: " << fileNum << std::endl;
+    const uint64_t byteOffset = inode.numFiles * sizeof(dirEntry_t);
+    inode.numFiles++;
+    dirEntry_t newEntry{};
+    newEntry.inodeNumber = fileNum;
+    strncpy(newEntry.name, fileName, MAX_FILE_NAME_LENGTH);
+    newEntry.name[MAX_FILE_NAME_LENGTH] = '\0';
+    // std::cout << "Byte offset: " << byteOffset << ", inode numFiles: " << inode.numFiles << std::endl;
+    // std::cout << "dir entry size: " << sizeof(dirEntry_t) << std::endl;
+    return write_at(byteOffset, reinterpret_cast<uint8_t*>(&newEntry), sizeof(dirEntry_t));
+
     // Determine the offset in the last directory block based on the current number of entries.
     const uint16_t offset = inode.numFiles % DIRECTORY_ENTRIES_PER_BLOCK;
 
@@ -342,6 +353,7 @@ std::vector<char*> Directory::listDirectoryEntries() const
             entries[cur] = new char[MAX_FILE_NAME_LENGTH + 1];
             strncpy(entries[cur], name, MAX_FILE_NAME_LENGTH);
             entries[cur][MAX_FILE_NAME_LENGTH] = '\0';
+            // std::cout << "Directory entry: " << entries[cur] << std::endl;
             cur++;
         }
     }
