@@ -4,7 +4,7 @@ project(MockFilesys)
 set(CMAKE_CXX_STANDARD 17)
 
 #Replaced main.cpp with test class, change back later as needed
-add_executable(MockFilesys main.cpp
+add_executable(MockFilesys tests/test_fs.cpp
         interface/FakeDiskDriver.h
         interface/FakeDiskDriver.cpp
         interface/BlockManager.h
@@ -24,6 +24,7 @@ add_executable(MockFilesys main.cpp
         filesys/LogManager.h
         filesys/fs_requests.cpp
         filesys/fs_requests.h
+
 )
 
 target_compile_definitions(MockFilesys PRIVATE NOT_KERNEL)
