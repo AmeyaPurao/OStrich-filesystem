@@ -22,6 +22,7 @@ namespace fs {
         FS_REQ_CREATE_FILE,
         FS_REQ_REMOVE_FILE,
         FS_REQ_READ_DIR,
+        FS_REQ_READ,
         FS_REQ_OPEN,
         FS_REQ_WRITE
     } fs_req_type_t;
@@ -83,6 +84,7 @@ namespace fs {
         fs_req_create_file_t create;
         fs_req_remove_file_t remove;
         fs_req_read_dir_t read_dir;
+        fs_req_read_t read;
         fs_req_open_t open;
         fs_req_write_t write;
     } fs_req_data_t;

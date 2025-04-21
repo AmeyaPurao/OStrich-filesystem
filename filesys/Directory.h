@@ -26,10 +26,11 @@ public:
     Directory* createDirectory(const char* name);
     File* createFile(const char* name);
     File* getFile(const char* name) const;
+    static Directory* convertFile(File* file);
 
 private:
     explicit Directory(const File* file);
-    static Directory* convertFile(File* file);
+
 };
 
 } // namespace fs
