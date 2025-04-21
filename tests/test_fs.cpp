@@ -138,81 +138,91 @@ int main() {
 
     cout << "completed 1-3" << endl;
 
-    // // 4) Snapshot consistency
-    // // recreate and overwrite twice, checkpoint at 0 and 1, then delete and cp 2
-    // {
-    //     // recreate
-    //     fs_req_t cr{};
-    //     cr.req_type = FS_REQ_CREATE_FILE;
-    //     cr.data.create.cwd = 0;
-    //     cr.data.create.is_dir = false;
-    //     cr.data.create.name = const_cast<char *>("file1");
-    //     auto r = fs_req_create_file(&cr);
-    //     assert(r.data.create_file.status == FS_RESP_SUCCESS);
-    //     //file1Inode = r.data.create_file.inode_index;
-    //     //assert(dirContains(0, "file1"));
-    //
-    //     // write first
-    //     {
-    //         const char *m1 = "first";
-    //         fs_req_t w1{};
-    //         w1.req_type = FS_REQ_WRITE;
-    //         w1.data.write.inode_index = file1Inode;
-    //         w1.data.write.offset = 0;
-    //         w1.data.write.n_bytes = std::strlen(m1) + 1;
-    //         w1.data.write.buf = const_cast<char *>(m1);
-    //         assert(fs_req_write(&w1).data.write.status == FS_RESP_SUCCESS);
-    //     }
-    //     // checkpoint 0
-    //     assert(liveFS->createCheckpoint());
-    //
-    //     // overwrite
-    //     {
-    //         const char *m2 = "second";
-    //         fs_req_t w2{};
-    //         w2.req_type = FS_REQ_WRITE;
-    //         w2.data.write.inode_index = file1Inode;
-    //         w2.data.write.offset = 0;
-    //         w2.data.write.n_bytes = std::strlen(m2) + 1;
-    //         w2.data.write.buf = const_cast<char *>(m2);
-    //         assert(fs_req_write(&w2).data.write.status == FS_RESP_SUCCESS);
-    //     }
-    //     // checkpoint 1
-    //     assert(liveFS->createCheckpoint());
-    //
-    //     // delete
-    //     fs_req_t rm{};
-    //     rm.req_type = FS_REQ_REMOVE_FILE;
-    //     rm.data.remove.inode_index = 0;
-    //     rm.data.remove.name = const_cast<char *>("file1");
-    //     assert(fs_req_remove_file(&rm).data.remove_file.status == FS_RESP_SUCCESS);
-    //
-    //     // checkpoint 2
-    //     assert(liveFS->createCheckpoint());
-    //
-    //     // helper to test
-    //     auto validate = [&](int cp, bool exists, const char *expected) {
-    //         FileSystem *snap = liveFS->mountReadOnlySnapshot(cp);
-    //         assert(snap);
-    //         auto *old = fileSystem;
-    //         fileSystem = snap;
-    //
-    //         bool found = dirContains(0, "file1");
-    //         assert(found == exists);
-    //         if (exists) {
-    //             int expectedLen = std::strlen(expected) + 1;
-    //             std::string content = readFile(file1Inode, expectedLen);
-    //             assert(content == expected);
-    //         }
-    //
-    //         fileSystem = old;
-    //         delete snap;
-    //     };
-    //
-    //     validate(2, true, "first");
-    //     validate(3, true, "second");
-    //     validate(4, false, nullptr);
-    // }
+     // 4) Snapshot consistency
+     {
+         // recreate
+         fs_req_t cr{};
+         cr.req_type = FS_REQ_CREATE_FILE;
+         cr.data.create.cwd = 0;
+         cr.data.create.is_dir = false;
+         cr.data.create.name = const_cast<char *>("file2");
+         auto r = fs_req_create_file(&cr);
+         assert(r.data.create_file.status == FS_RESP_SUCCESS);
+         file1Inode = r.data.create_file.inode_index;
+         // check that file exists
+
+         fs_req_t op{};
+        op.req_type = FS_REQ_OPEN;
+        static char p1[] = "/file2";
+        op.data.open.path = p1;
+        auto ro = fs_req_open(&op);
+        assert(ro.data.open.status == FS_RESP_SUCCESS);
+        inode_index_t checkInode = ro.data.open.inode_index;
+        assert(checkInode == file1Inode);
+
+
+
+         // write first
+         {
+             const char *m1 = "first";
+             fs_req_t w1{};
+             w1.req_type = FS_REQ_WRITE;
+             w1.data.write.inode_index = file1Inode;
+             w1.data.write.offset = 0;
+             w1.data.write.n_bytes = std::strlen(m1) + 1;
+             w1.data.write.buf = const_cast<char *>(m1);
+             assert(fs_req_write(&w1).data.write.status == FS_RESP_SUCCESS);
+         }
+         // checkpoint (2)
+         assert(liveFS->createCheckpoint());
+
+         // overwrite
+         {
+             const char *m2 = "second";
+             fs_req_t w2{};
+             w2.req_type = FS_REQ_WRITE;
+             w2.data.write.inode_index = file1Inode;
+             w2.data.write.offset = 0;
+             w2.data.write.n_bytes = std::strlen(m2) + 1;
+             w2.data.write.buf = const_cast<char *>(m2);
+             assert(fs_req_write(&w2).data.write.status == FS_RESP_SUCCESS);
+         }
+         // checkpoint (3)
+         assert(liveFS->createCheckpoint());
+
+         // delete
+         fs_req_t rm{};
+         rm.req_type = FS_REQ_REMOVE_FILE;
+         rm.data.remove.inode_index = 0;
+         rm.data.remove.name = const_cast<char *>("file2");
+         assert(fs_req_remove_file(&rm).data.remove_file.status == FS_RESP_SUCCESS);
+
+         // checkpoint (4)
+         assert(liveFS->createCheckpoint());
+
+         // helper to test
+         auto validate = [&](int cp, bool exists, const char *expected) {
+             FileSystem *snap = liveFS->mountReadOnlySnapshot(cp);
+             assert(snap);
+             auto *old = fileSystem;
+             fileSystem = snap;
+
+             bool found = dirContains(0, "file2");
+             assert(found == exists);
+             if (exists) {
+                 int expectedLen = std::strlen(expected) + 1;
+                 std::string content = readFile(file1Inode, expectedLen);
+                 assert(content == expected);
+             }
+
+             fileSystem = old;
+             delete snap;
+         };
+
+         validate(2, true, "first");
+         validate(3, true, "second");
+         validate(4, false, nullptr);
+     }
 
     std::puts("All tests passed!");
     return 0;
