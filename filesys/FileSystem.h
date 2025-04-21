@@ -30,6 +30,8 @@ public:
     // Returns a new FileSystem instance representing the snapshot, or nullptr on failure.
     FileSystem* mountReadOnlySnapshot(uint32_t checkpointID);
 
+    bool isReadOnly() const { return readOnly; }
+
     // make public for now
     InodeTable *inodeTable;
     BitmapManager *inodeBitmap;
