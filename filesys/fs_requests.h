@@ -5,8 +5,11 @@
 #include "Directory.h"
 #include "FileSystem.h"
 #include "../interface/BlockManager.h"
+#include "string"
+#include "cstdint"
 
 #ifndef NOT_KERNEL
+#include "utility.h" // For std::forward
 #include "event.h"
 #include "function.h"
 #endif
@@ -20,7 +23,7 @@ namespace fs {
     void init(BlockManager* block_manager);
 
     // Enum for different request types
-    typedef enum {
+    enum fs_req_type_t {
         FS_REQ_ADD_DIR,
         FS_REQ_CREATE_FILE,
         FS_REQ_REMOVE_FILE,
@@ -29,117 +32,60 @@ namespace fs {
         FS_REQ_OPEN,
         FS_REQ_WRITE,
         FS_REQ_MOUNT_SNAPSHOT,
-    } fs_req_type_t;
+    };
 
     // Enum for different response status codes
-    typedef enum {
+    enum fs_resp_status_t {
         FS_RESP_SUCCESS,
         FS_RESP_ERROR_NOT_FOUND,
         FS_RESP_ERROR_EXISTS,
         FS_RESP_ERROR_PERMISSION,
         FS_RESP_ERROR_INVALID,
         FS_RESP_ERROR_FULL
-    } fs_resp_status_t;
-
-    // Structures for different request types
-    typedef struct {
-        inode_index_t dir;
-        inode_index_t file_to_add;
-        char *name;
-    } fs_req_add_dir_t;
-
-    typedef struct {
-        inode_index_t cwd;
-        bool is_dir;
-        char *name;
-        uint16_t permissions;
-    } fs_req_create_file_t;
-
-    typedef struct {
-        inode_index_t inode_index;
-        char *name; // TODO: remove this later, we wanna use the inode index instead.
-    } fs_req_remove_file_t;
-
-    typedef struct {
-        inode_index_t inode_index;
-    } fs_req_read_dir_t;
-
-    typedef struct {
-        char *path;
-    } fs_req_open_t;
-
-    typedef struct {
-        inode_index_t inode_index;
-        char *buf;
-        int offset;
-        int n_bytes;
-    } fs_req_write_t;
-
-    typedef struct {
-        inode_index_t inode_index;
-        char *buf;
-        int offset;
-        int n_bytes;
-    } fs_req_read_t;
-
-    typedef struct {
-        uint32_t checkpointID;
-    } fs_req_mount_snapshot_t;
-
-    // Union of all request types
-    typedef union {
-        fs_req_add_dir_t add_dir;
-        fs_req_create_file_t create;
-        fs_req_remove_file_t remove;
-        fs_req_read_dir_t read_dir;
-        fs_req_read_t read;
-        fs_req_open_t open;
-        fs_req_write_t write;
-        fs_req_mount_snapshot_t mount_snapshot;
-    } fs_req_data_t;
+    };
 
     // Structures for different response types
-    typedef struct {
+    struct fs_resp_add_dir_t {
         fs_resp_status_t status;
-    } fs_resp_add_dir_t;
+    };
 
-    typedef struct {
+    struct fs_resp_create_file_t {
         fs_resp_status_t status;
         inode_index_t inode_index;
-    } fs_resp_create_file_t;
+    };
 
-    typedef struct {
+    struct fs_resp_remove_file_t {
         fs_resp_status_t status;
-    } fs_resp_remove_file_t;
+    };
 
-    typedef struct {
+    struct fs_resp_read_dir_t {
         fs_resp_status_t status;
         int entry_count;
         dirEntry_t entries[DIRECTORY_ENTRIES_PER_BLOCK];
-    } fs_resp_read_dir_t;
+    };
 
-    typedef struct {
+    struct fs_resp_open_t {
         fs_resp_status_t status;
         inode_index_t inode_index;
         uint16_t permissions;
-    } fs_resp_open_t;
+    };
 
-    typedef struct {
+    struct fs_resp_write_t {
         fs_resp_status_t status;
         int bytes_written;
-    } fs_resp_write_t;
+    };
 
-    typedef struct {
+    struct fs_resp_read_t {
         fs_resp_status_t status;
         int bytes_read;
-    } fs_resp_read_t;
+    };
 
-    typedef struct {
+    struct fs_resp_mount_snapshot_t {
         fs_resp_status_t status;
-    } fs_resp_mount_snapshot_t;
+    };
 
     // Union of all response types
-    typedef union {
+    union fs_response_data_t {
         fs_resp_add_dir_t add_dir;
         fs_resp_create_file_t create_file;
         fs_resp_remove_file_t remove_file;
@@ -148,42 +94,71 @@ namespace fs {
         fs_resp_write_t write;
         fs_resp_read_t read;
         fs_resp_mount_snapshot_t mount_snapshot;
-    } fs_response_data_t;
-
-    // Main request structure
-    typedef struct {
-        fs_req_type_t req_type;
-        fs_req_data_t data;
-        // Private ring buffer would be implementation-specific
-        void *ring_buffer;
-    } fs_req_t;
+    };
 
     // Main response structure
-    typedef struct {
+    struct fs_response_t {
         fs_req_type_t req_type;
         fs_response_data_t data;
-    } fs_response_t;
+    };
 
-
-    // Function prototypes
-    fs_response_t fs_req_add_dir(fs_req_t *req);
-
-    fs_response_t fs_req_create_file(fs_req_t *req);
-
-    fs_response_t fs_req_remove_file(fs_req_t *req);
-
-    fs_response_t fs_req_read_dir(fs_req_t *req);
-
-    fs_response_t fs_req_open(fs_req_t *req);
-
-    fs_response_t fs_req_write(fs_req_t *req);
-
-    fs_response_t fs_req_read(fs_req_t *req);
-
-    fs_response_t fs_req_mount_snapshot(fs_req_t *req);
+    // Add directory entry
+    fs_resp_add_dir_t fs_req_add_dir(inode_index_t dir, inode_index_t file_to_add, const string& name);
+    
+    // Create file or directory
+    fs_resp_create_file_t fs_req_create_file(inode_index_t cwd, bool is_dir, const string& name, uint16_t permissions);
+    
+    // Remove file or directory
+    fs_resp_remove_file_t fs_req_remove_file(inode_index_t inode_index, const string& name);
+    
+    // Read directory contents
+    fs_resp_read_dir_t fs_req_read_dir(inode_index_t inode_index);
+    
+    // Open file by path
+    fs_resp_open_t fs_req_open(const string& path);
+    
+    // Write to file
+    fs_resp_write_t fs_req_write(inode_index_t inode_index, const char* buf, int offset, int n_bytes);
+    
+    // Read from file
+    fs_resp_read_t fs_req_read(inode_index_t inode_index, char* buf, int offset, int n_bytes);
+    
+    // Mount snapshot
+    fs_resp_mount_snapshot_t fs_req_mount_snapshot(uint32_t checkpointID);
 
 #ifndef NOT_KERNEL
-    void issue_fs_request(fs_req_type_t req_type, fs_req_t& req, Function<void(fs_response_t)> callback);
+    constexpr int NUM_FS_THREADS = 1;
+    inline Semaphore fs_semaphore(NUM_FS_THREADS); // thought it was a nice way to queue requests w/o tons of extra code.
+
+    // Unified request issuing function with request type as template parameter
+    template<fs_req_type_t ReqType, typename... Args>
+    void issue_fs_request(Function<void(fs_response_t)> callback, Args&&... args) {
+        fs_semaphore.down([=]() mutable {
+            fs_response_t response;
+            response.req_type = ReqType;
+            
+            if constexpr (ReqType == FS_REQ_ADD_DIR) {
+                response.data.add_dir = fs_req_add_dir(std::forward<Args>(args)...);
+            } else if constexpr (ReqType == FS_REQ_CREATE_FILE) {
+                response.data.create_file = fs_req_create_file(std::forward<Args>(args)...);
+            } else if constexpr (ReqType == FS_REQ_REMOVE_FILE) {
+                response.data.remove_file = fs_req_remove_file(std::forward<Args>(args)...);
+            } else if constexpr (ReqType == FS_REQ_READ_DIR) {
+                response.data.read_dir = fs_req_read_dir(std::forward<Args>(args)...);
+            } else if constexpr (ReqType == FS_REQ_READ) {
+                response.data.read = fs_req_read(std::forward<Args>(args)...);
+            } else if constexpr (ReqType == FS_REQ_OPEN) {
+                response.data.open = fs_req_open(std::forward<Args>(args)...);
+            } else if constexpr (ReqType == FS_REQ_WRITE) {
+                response.data.write = fs_req_write(std::forward<Args>(args)...);
+            } else if constexpr (ReqType == FS_REQ_MOUNT_SNAPSHOT) {
+                response.data.mount_snapshot = fs_req_mount_snapshot(std::forward<Args>(args)...);
+            }
+
+            fs_semaphore.up();    
+            create_event<fs_response_t>(callback, response);
+        });
+    }
 #endif
 
 } // namespace fs
