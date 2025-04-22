@@ -202,10 +202,11 @@ int main() {
 
          // helper to test
          auto validate = [&](int cp, bool exists, const char *expected) {
-             FileSystem *snap = liveFS->mountReadOnlySnapshot(cp);
-             assert(snap);
-             auto *old = fileSystem;
-             fileSystem = snap;
+             fs_req_t ms{};
+             ms.req_type = FS_REQ_MOUNT_SNAPSHOT;
+             ms.data.mount_snapshot.checkpointID = cp;
+             auto resp = fs_req_mount_snapshot(&ms);
+             assert(resp.data.mount_snapshot.status == FS_RESP_SUCCESS);
 
              bool found = dirContains(0, "file2");
              assert(found == exists);
@@ -214,15 +215,17 @@ int main() {
                  std::string content = readFile(file1Inode, expectedLen);
                  assert(content == expected);
              }
-
-             fileSystem = old;
-             delete snap;
          };
 
          validate(2, true, "first");
          validate(3, true, "second");
          validate(4, false, nullptr);
      }
+    fs_req_t ms{};
+    ms.req_type = FS_REQ_MOUNT_SNAPSHOT;
+    ms.data.mount_snapshot.checkpointID = 0;
+    auto resp = fs_req_mount_snapshot(&ms);
+    assert(resp.data.mount_snapshot.status == FS_RESP_SUCCESS);
 
     std::puts("All tests passed!");
     return 0;

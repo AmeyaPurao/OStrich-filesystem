@@ -10,6 +10,7 @@
 namespace fs {
     // Singleton instance of FileSystem
     inline FileSystem* fileSystem;
+    inline BlockManager* blockManager;
 
     // Function to initialize the filesystem - must be run before calling any other function and takes a BlockManager
     void init(BlockManager* block_manager);
@@ -24,7 +25,8 @@ namespace fs {
         FS_REQ_READ_DIR,
         FS_REQ_READ,
         FS_REQ_OPEN,
-        FS_REQ_WRITE
+        FS_REQ_WRITE,
+        FS_REQ_MOUNT_SNAPSHOT,
     } fs_req_type_t;
 
     // Enum for different response status codes
@@ -78,6 +80,10 @@ namespace fs {
         int n_bytes;
     } fs_req_read_t;
 
+    typedef struct {
+        uint32_t checkpointID;
+    } fs_req_mount_snapshot_t;
+
     // Union of all request types
     typedef union {
         fs_req_add_dir_t add_dir;
@@ -87,6 +93,7 @@ namespace fs {
         fs_req_read_t read;
         fs_req_open_t open;
         fs_req_write_t write;
+        fs_req_mount_snapshot_t mount_snapshot;
     } fs_req_data_t;
 
     // Structures for different response types
@@ -125,6 +132,10 @@ namespace fs {
         int bytes_read;
     } fs_resp_read_t;
 
+    typedef struct {
+        fs_resp_status_t status;
+    } fs_resp_mount_snapshot_t;
+
     // Union of all response types
     typedef union {
         fs_resp_add_dir_t add_dir;
@@ -134,6 +145,7 @@ namespace fs {
         fs_resp_open_t open;
         fs_resp_write_t write;
         fs_resp_read_t read;
+        fs_resp_mount_snapshot_t mount_snapshot;
     } fs_response_data_t;
 
     // Main request structure
@@ -167,6 +179,8 @@ namespace fs {
     fs_response_t fs_req_write(fs_req_t *req);
 
     fs_response_t fs_req_read(fs_req_t *req);
+
+    fs_response_t fs_req_mount_snapshot(fs_req_t *req);
 } // namespace fs
 
 #endif // FS_REQUESTS_H

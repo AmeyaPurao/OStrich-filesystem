@@ -7,6 +7,7 @@
 namespace fs {
     void init(BlockManager* block_manager) {
         fileSystem = FileSystem::getInstance(block_manager);
+        blockManager = block_manager;
     }
 
     fs_response_t fs_req_add_dir(fs_req_t* req) {
@@ -200,6 +201,25 @@ namespace fs {
             resp.data.read.bytes_read = 0;
         }
         resp.req_type = FS_REQ_READ;
+        return resp;
+    }
+
+    fs_response_t fs_req_mount_snapshot(fs_req_t *req) {
+        fs_response_t resp;
+        resp.req_type = FS_REQ_MOUNT_SNAPSHOT;
+        fileSystem = FileSystem::getInstance(blockManager);
+        if (req->data.mount_snapshot.checkpointID == 0) {
+            resp.data.mount_snapshot.status = FS_RESP_SUCCESS;
+        }
+        else {
+            FileSystem* snapshot = fileSystem->mountReadOnlySnapshot(req->data.mount_snapshot.checkpointID);
+            if (snapshot) {
+                fileSystem = snapshot;
+                resp.data.mount_snapshot.status = FS_RESP_SUCCESS;
+            } else {
+                resp.data.mount_snapshot.status = FS_RESP_ERROR_NOT_FOUND;
+            }
+        }
         return resp;
     }
 }
