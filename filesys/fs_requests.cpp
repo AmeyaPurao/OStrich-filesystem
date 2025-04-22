@@ -3,6 +3,16 @@
 //
 
 #include "fs_requests.h"
+#include "cassert"
+#include "cstring"
+#include "cstdlib"
+#include "string"
+#include "vector"
+
+#ifndef NOT_KERNEL
+#include "atomic.h"
+#include "event.h"
+#endif
 
 namespace fs {
     void init(BlockManager* block_manager) {
@@ -116,27 +126,26 @@ namespace fs {
         fs_response_t resp;
         resp.req_type = FS_REQ_OPEN;
         resp.data.open.status = FS_RESP_ERROR_NOT_FOUND;
-        char* fullpath = (char*)malloc(MAX_FILE_NAME_LENGTH + 1);
-        strcpy(fullpath, req->data.open.path);
-        vector<string> path_parts;
-        //parse path to open from root delimiting on "/". If we see a .., we delete the previous part and continue
-        char* token = strtok(fullpath, "/");
-        while (token != nullptr) {
-            if (strcmp(token, "..") == 0) {
-                if (!path_parts.empty()) {
-                    path_parts.pop_back();
-                }
+        std::vector<string> path_parts;
+
+        // Parse path (already minified)
+        string path(req->data.open.path);
+        string cur_part;
+        for (int i = 1; i < path.length(); i++) {
+            if (path[i] == '/') {
+                path_parts.push_back(cur_part);
+                cur_part = "";
             } else {
-                path_parts.emplace_back(token);
+                cur_part += path[i];
             }
-            token = strtok(nullptr, "/");
         }
-        delete [] fullpath;
+        path_parts.push_back(cur_part);
 
         Directory* rootDir = fileSystem->getRootDirectory();
         Directory* curDir = rootDir;
         inode_index_t dir_inode_num = 0;
         for(int i = 0; i < path_parts.size() - 1; i++) {
+            printf("nope\n");
             dir_inode_num = curDir->getDirectoryEntry(path_parts[i].c_str());
             if (dir_inode_num == INODE_NULL_VALUE) {
                 return resp;
@@ -148,7 +157,7 @@ namespace fs {
         //open the file in the last part of the path
         //TODO need to modify createFile()/createDirectory to take permissions and stuff
         void* newFile = nullptr;
-        if (strcmp(path_parts.back().c_str(), ".") == 0) {
+        if (path_parts.back() == ".") {
             newFile = curDir;
         } else {
             newFile = curDir->getFile(path_parts.back().c_str());
@@ -222,5 +231,43 @@ namespace fs {
         }
         return resp;
     }
+
+    fs_response_t fs_req_dispatch(fs_req_type_t req_type, fs_req_t req) {
+        switch (req_type) {
+            case FS_REQ_ADD_DIR:
+                return fs_req_add_dir(&req);
+            case FS_REQ_CREATE_FILE:
+                return fs_req_create_file(&req);
+            case FS_REQ_REMOVE_FILE:
+                return fs_req_remove_file(&req);
+            case FS_REQ_READ_DIR:
+                return fs_req_read_dir(&req);
+            case FS_REQ_OPEN:
+                return fs_req_open(&req);
+            case FS_REQ_WRITE:
+                return fs_req_write(&req);
+            case FS_REQ_READ:
+                return fs_req_read(&req);
+            case FS_REQ_MOUNT_SNAPSHOT:
+                return fs_req_mount_snapshot(&req);
+            default:
+                printf("Invalid request type: %d\n", req_type);
+        }
+        assert(0);
+        return fs_response_t();
+    }
+
+#ifndef NOT_KERNEL
+    constexpr int NUM_FS_THREADS = 1;
+    Semaphore fs_semaphore(NUM_FS_THREADS); // thought it was a nice way to queue requests w/o tons of extra code.
+
+    void issue_fs_request(fs_req_type_t req_type, fs_req_t& req, Function<void(fs_response_t)> callback) {
+        fs_semaphore.down([=]() {
+            fs_response_t resp = fs_req_dispatch(req_type, req);
+            fs_semaphore.up();
+            create_event<fs_response_t>(callback, resp);
+        });
+    }
+#endif
 }
 

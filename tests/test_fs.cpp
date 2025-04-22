@@ -217,9 +217,9 @@ int main() {
              }
          };
 
-         validate(2, true, "first");
-         validate(3, true, "second");
-         validate(4, false, nullptr);
+         validate(1, true, "first");
+         validate(2, true, "second");
+         validate(3, false, nullptr);
      }
     fs_req_t ms{};
     ms.req_type = FS_REQ_MOUNT_SNAPSHOT;

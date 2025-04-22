@@ -183,9 +183,9 @@ bool Directory::removeDirectoryEntry(const char* fileName) {
 
                 // Calculate the global index of the found entry.
                 uint32_t entryGlobalIndex = i * DIRECTORY_ENTRIES_PER_BLOCK + j;
-                cout << "Entry global index: " << entryGlobalIndex << endl;
-                cout << "Inode numFiles: " << inode.numFiles << endl;
-                cout << "Inode blockCount: " << inode.blockCount << endl;
+                // cout << "Entry global index: " << entryGlobalIndex << endl;
+                // cout << "Inode numFiles: " << inode.numFiles << endl;
+                // cout << "Inode blockCount: " << inode.blockCount << endl;
 
                 if (entryGlobalIndex >= inode.numFiles) {
                     printf("Entry global index out of bounds\n");

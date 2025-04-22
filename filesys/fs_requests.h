@@ -5,7 +5,11 @@
 #include "Directory.h"
 #include "FileSystem.h"
 #include "../interface/BlockManager.h"
-//#include "ring_buffer.h"
+
+#ifndef NOT_KERNEL
+#include "event.h"
+#include "function.h"
+#endif
 
 namespace fs {
     // Singleton instance of FileSystem
@@ -14,8 +18,6 @@ namespace fs {
 
     // Function to initialize the filesystem - must be run before calling any other function and takes a BlockManager
     void init(BlockManager* block_manager);
-
-
 
     // Enum for different request types
     typedef enum {
@@ -163,8 +165,6 @@ namespace fs {
     } fs_response_t;
 
 
-
-
     // Function prototypes
     fs_response_t fs_req_add_dir(fs_req_t *req);
 
@@ -181,6 +181,11 @@ namespace fs {
     fs_response_t fs_req_read(fs_req_t *req);
 
     fs_response_t fs_req_mount_snapshot(fs_req_t *req);
+
+#ifndef NOT_KERNEL
+    void issue_fs_request(fs_req_type_t req_type, fs_req_t& req, Function<void(fs_response_t)> callback);
+#endif
+
 } // namespace fs
 
 #endif // FS_REQUESTS_H
