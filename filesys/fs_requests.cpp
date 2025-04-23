@@ -15,12 +15,15 @@
 #endif
 
 namespace fs {
+#ifdef NOT_KERNEL
     void init(BlockManager* block_manager) {
         fileSystem = FileSystem::getInstance(block_manager);
         blockManager = block_manager;
     }
+#endif
 
     fs_resp_add_dir_t fs_req_add_dir(inode_index_t dir, inode_index_t file_to_add, const string& name) {
+        FileSystem* fileSystem = FileSystem::getInstance();
         fs_resp_add_dir_t resp;
 
         if (fileSystem->isReadOnly()) {
@@ -38,6 +41,7 @@ namespace fs {
 
 fs_resp_create_file_t fs_req_create_file(inode_index_t cwd, bool is_dir, const string& name, uint16_t permissions) {
     fs_resp_create_file_t resp;
+    FileSystem* fileSystem = FileSystem::getInstance();
 
     if (fileSystem->isReadOnly()) {
         resp.status = FS_RESP_ERROR_PERMISSION;
@@ -68,7 +72,7 @@ fs_resp_create_file_t fs_req_create_file(inode_index_t cwd, bool is_dir, const s
 
 fs_resp_remove_file_t fs_req_remove_file(inode_index_t inode_index, const string& name) {
     fs_resp_remove_file_t resp;
-
+    FileSystem* fileSystem = FileSystem::getInstance();
     if (fileSystem->isReadOnly()) {
         resp.status = FS_RESP_ERROR_PERMISSION;
         return resp;
@@ -83,6 +87,7 @@ fs_resp_remove_file_t fs_req_remove_file(inode_index_t inode_index, const string
 }
 fs_resp_read_dir_t fs_req_read_dir(inode_index_t inode_index) {
     fs_resp_read_dir_t resp;
+    FileSystem* fileSystem = FileSystem::getInstance();
     resp.entry_count = 0;
 
     Directory parent(inode_index, fileSystem->inodeTable, fileSystem->inodeBitmap,
@@ -102,6 +107,7 @@ fs_resp_read_dir_t fs_req_read_dir(inode_index_t inode_index) {
 }
     fs_resp_open_t fs_req_open(const string& path) {
         fs_resp_open_t resp;
+        FileSystem* fileSystem = FileSystem::getInstance();
         resp.status = FS_RESP_ERROR_NOT_FOUND;
         resp.inode_index = INODE_NULL_VALUE;
         std::vector<string> path_parts;
@@ -110,6 +116,7 @@ fs_resp_read_dir_t fs_req_read_dir(inode_index_t inode_index) {
         string cur_part;
         for (int i = 1; i < path.length(); i++) {
             if (path[i] == '/') {
+                printf("Adding part %s\n", cur_part.c_str());
                 path_parts.push_back(cur_part);
                 cur_part = "";
             } else {
@@ -150,6 +157,7 @@ fs_resp_read_dir_t fs_req_read_dir(inode_index_t inode_index) {
 
 fs_resp_write_t fs_req_write(inode_index_t inode_index, const char* buf, int offset, int n_bytes) {
     fs_resp_write_t resp;
+    FileSystem* fileSystem = FileSystem::getInstance();
 
     if (fileSystem->isReadOnly()) {
         resp.status = FS_RESP_ERROR_PERMISSION;
@@ -172,12 +180,13 @@ fs_resp_write_t fs_req_write(inode_index_t inode_index, const char* buf, int off
 
 fs_resp_read_t fs_req_read(inode_index_t inode_index, char* buf, int offset, int n_bytes) {
     fs_resp_read_t resp;
-        File file(inode_index, fileSystem->inodeTable, fileSystem->inodeBitmap,
-                fileSystem->blockBitmap, fileSystem->blockManager, fileSystem->logManager);
-        bool success = file.read_at(offset, reinterpret_cast<uint8_t*>(buf), n_bytes);
-        if (success) {
-            resp.status = FS_RESP_SUCCESS;
-            resp.bytes_read = n_bytes;
+    FileSystem* fileSystem = FileSystem::getInstance();
+    File file(inode_index, fileSystem->inodeTable, fileSystem->inodeBitmap,
+            fileSystem->blockBitmap, fileSystem->blockManager, fileSystem->logManager);
+    bool success = file.read_at(offset, reinterpret_cast<uint8_t*>(buf), n_bytes);
+    if (success) {
+        resp.status = FS_RESP_SUCCESS;
+        resp.bytes_read = n_bytes;
         } else {
             resp.status = FS_RESP_ERROR_INVALID;
             resp.bytes_read = 0;
@@ -188,8 +197,9 @@ fs_resp_read_t fs_req_read(inode_index_t inode_index, char* buf, int offset, int
 
 fs_resp_mount_snapshot_t fs_req_mount_snapshot(uint32_t checkpointID) {
     fs_resp_mount_snapshot_t resp;
-        if (checkpointID == 0) {
-            resp.status = FS_RESP_SUCCESS;
+    FileSystem* fileSystem = FileSystem::getInstance();
+    if (checkpointID == 0) {
+        resp.status = FS_RESP_SUCCESS;
         }
         else {
             FileSystem* snapshot = fileSystem->mountReadOnlySnapshot(checkpointID);

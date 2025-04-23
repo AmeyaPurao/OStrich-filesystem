@@ -16,11 +16,12 @@
 
 namespace fs {
     // Singleton instance of FileSystem
+#ifdef NOT_KERNEL
     inline FileSystem* fileSystem;
     inline BlockManager* blockManager;
-
     // Function to initialize the filesystem - must be run before calling any other function and takes a BlockManager
     void init(BlockManager* block_manager);
+#endif
 
     // Enum for different request types
     enum fs_req_type_t {
