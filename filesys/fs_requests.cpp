@@ -37,7 +37,7 @@ namespace fs {
         bool ok = parent.addDirectoryEntry(name.c_str(), file_to_add);
         resp.status = ok ? FS_RESP_SUCCESS : FS_RESP_ERROR_EXISTS;
         return resp;
-    } 
+    }
 
 fs_resp_create_file_t fs_req_create_file(inode_index_t cwd, bool is_dir, const string& name, uint16_t permissions) {
     fs_resp_create_file_t resp;
@@ -197,18 +197,11 @@ fs_resp_read_t fs_req_read(inode_index_t inode_index, char* buf, int offset, int
 
     fs_resp_mount_snapshot_t fs_req_mount_snapshot(uint32_t checkpointID) {
         fs_resp_mount_snapshot_t resp;
-        FileSystem* fileSystem = FileSystem::getInstance();
-        if (checkpointID == 0) {
+        bool success = fileSystem->mountReadOnlySnapshot(checkpointID);
+        if (success) {
             resp.status = FS_RESP_SUCCESS;
-        }
-        else {
-            FileSystem* snapshot = fileSystem->mountReadOnlySnapshot(checkpointID);
-            if (snapshot) {
-                fileSystem = snapshot;
-                resp.status = FS_RESP_SUCCESS;
-            } else {
-                resp.status = FS_RESP_ERROR_NOT_FOUND;
-            }
+        } else {
+            resp.status = FS_RESP_ERROR_INVALID;
         }
         return resp;
     }

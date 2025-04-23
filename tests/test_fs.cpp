@@ -165,9 +165,10 @@ int main() {
              }
          };
 
-         validate(1, true, "first");
-         validate(2, true, "second");
-         validate(3, false, nullptr);
+         validate(2, true, "first");
+         validate(3, true, "second");
+         validate(4, false, nullptr);
+         validate(0, false, nullptr);
      }
 
     printf("last test\n");

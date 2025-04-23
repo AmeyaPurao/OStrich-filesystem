@@ -18,6 +18,7 @@ static const uint32_t NUM_CHECKPOINTS = 128;
 
 // Do not remove.
 FileSystem* FileSystem::instance = nullptr;
+InodeTable* FileSystem::liveTable = nullptr;
 
 FileSystem* FileSystem::getInstance(BlockManager* blockManager) {
     if (!instance) {
@@ -205,38 +206,42 @@ bool FileSystem::createCheckpoint() {
 }
 
 // Modified mountReadOnlySnapshot using the new snapshot functionality.
-FileSystem* FileSystem::mountReadOnlySnapshot(uint32_t checkpointID) {
+bool FileSystem::mountReadOnlySnapshot(uint32_t checkpointID) {
+    if(checkpointID == 0){
+        instance->readOnly = false; // Mount the live filesystem
+        instance->inodeTable = liveTable; // Restore the live inode table
+        return true;
+    }
+
     // Read the superblock from disk.
     block_t superBlockTemp;
     if (!blockManager->readBlock(0, superBlockTemp.data)) {
         printf("mountReadOnlySnapshot: Failed to read superblock\n");
-        return nullptr;
+        return false;
     }
     // Validate checkpointID and obtain the checkpoint block index.
     if (checkpointID >= 128) {
         printf("mountReadOnlySnapshot: Invalid checkpointID\n");
-        return nullptr;
+        return false;
     }
     block_index_t cpBlock = superBlockTemp.superBlock.checkpointArr[checkpointID];
     if (cpBlock == 0) {
         printf("mountReadOnlySnapshot: Checkpoint not available\n");
-        return nullptr;
+        return false;
     }
     // Create a snapshot of the inode table from the checkpoint chain.
     InodeTable* snapshotInodeTable = InodeTable::createSnapshotFromCheckpoint(cpBlock, this->inodeTable);
     if (!snapshotInodeTable) {
         printf("mountReadOnlySnapshot: Failed to create snapshot inode table\n");
-        return nullptr;
+        return false;
     }
-    // Create a new FileSystem instance (the live instance remains unchanged).
-    FileSystem* snapshotFS = new FileSystem(blockManager);
-    // Replace the live inode table with our snapshot version.
-    delete snapshotFS->inodeTable; // Free the inode table loaded in the constructor.
-    snapshotFS->inodeTable = snapshotInodeTable;
+    if(!instance->readOnly){
+        liveTable = instance->inodeTable; // Store the live inode table.
+    }
+    instance->inodeTable = snapshotInodeTable;
     // Mark the snapshot as read-only.
-    snapshotFS->readOnly = true;
-    // ToDo reject writes in the snapshotFS instance somehow (probably need to add flag checks).
-    return snapshotFS;
+    instance->readOnly = true;
+    return true;
 }
 
 } // namespace fs
