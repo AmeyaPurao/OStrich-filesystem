@@ -195,11 +195,11 @@ fs_resp_read_t fs_req_read(inode_index_t inode_index, char* buf, int offset, int
     }
 
 
-fs_resp_mount_snapshot_t fs_req_mount_snapshot(uint32_t checkpointID) {
-    fs_resp_mount_snapshot_t resp;
-    FileSystem* fileSystem = FileSystem::getInstance();
-    if (checkpointID == 0) {
-        resp.status = FS_RESP_SUCCESS;
+    fs_resp_mount_snapshot_t fs_req_mount_snapshot(uint32_t checkpointID) {
+        fs_resp_mount_snapshot_t resp;
+        FileSystem* fileSystem = FileSystem::getInstance();
+        if (checkpointID == 0) {
+            resp.status = FS_RESP_SUCCESS;
         }
         else {
             FileSystem* snapshot = fileSystem->mountReadOnlySnapshot(checkpointID);
