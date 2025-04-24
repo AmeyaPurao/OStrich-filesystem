@@ -184,28 +184,6 @@ int main() {
         assert(dirContains(0, "file2"));
     }
 
-//    inode_index_t file3inode;
-//    // create file3
-//    {
-//        auto r = fs_req_create_file(0, false, "file3", 0);
-//        assert(r.status == FS_RESP_SUCCESS);
-//        file3inode = r.inode_index;
-//        // check that file exists
-//        assert(dirContains(0, "file3"));
-//    }
-//
-//    // write text to file 3
-//    {
-//        const char *msg = "apples apples apples";
-//        int len = std::strlen(msg) + 1;  // includes null terminator
-//        auto wr = fs_req_write(file3inode, msg, 0, len);
-//        assert(wr.status == FS_RESP_SUCCESS);
-//
-//        // assert read returns the same data
-//        std::string got = readFile(2, len);
-//        assert(got == "apples apples apples");
-//    }
-
     // write hello world to file 2
     {
         const char *msg = "hello world";
@@ -213,9 +191,33 @@ int main() {
         auto wr = fs_req_write(file2inode, msg, 0, len);
         assert(wr.status == FS_RESP_SUCCESS);
 
-        // assert read returns the same data
-        std::string got = readFile(file2inode, len);
-        assert(got == "hello world");
+        file2inode = fs_req_open("/file2").inode_index;
+        printf("file2 inode: %u\n", file2inode);
+
+        // assert read returns the same data by making a fsrequest and a buffer
+        // read from file2
+        char buffer[256] = {};
+        auto rd = fs_req_read(file2inode, buffer, 0, len);
+        assert(rd.status == FS_RESP_SUCCESS);
+        assert(std::strcmp(buffer, msg) == 0);
+    }
+
+    // now overwrite file2 and test again
+    {
+        const char *msg = "goodbye world";
+        int len = std::strlen(msg) + 1;  // includes null terminator
+        auto wr = fs_req_write(file2inode, msg, 0, len);
+        assert(wr.status == FS_RESP_SUCCESS);
+
+        file2inode = fs_req_open("/file2").inode_index;
+        printf("file2 inode: %u\n", file2inode);
+
+        // assert read returns the same data by making a fsrequest and a buffer
+        // read from file2
+        char buffer[256] = {};
+        auto rd = fs_req_read(file2inode, buffer, 0, len);
+        assert(rd.status == FS_RESP_SUCCESS);
+        assert(std::strcmp(buffer, msg) == 0);
     }
 
     std::puts("All tests passed!");
