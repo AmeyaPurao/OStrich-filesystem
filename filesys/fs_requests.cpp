@@ -187,11 +187,11 @@ fs_resp_read_t fs_req_read(inode_index_t inode_index, char* buf, int offset, int
     if (success) {
         resp.status = FS_RESP_SUCCESS;
         resp.bytes_read = n_bytes;
-        } else {
-            resp.status = FS_RESP_ERROR_INVALID;
-            resp.bytes_read = 0;
-        }
-        return resp;
+    } else {
+        resp.status = FS_RESP_ERROR_INVALID;
+        resp.bytes_read = 0;
+    }
+    return resp;
     }
 
 
