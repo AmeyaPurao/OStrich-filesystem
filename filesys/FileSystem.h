@@ -11,6 +11,10 @@
 #include "../interface/BlockManager.h"
 #include "LogManager.h"
 
+#ifndef NOT_KERNEL
+#include "atomic.h"
+#endif
+
 // Make filesystem a singleton (at most one global instance is allowed to exist).
 // Don't call constructor directly, use getInstance instead.
 namespace fs {
@@ -38,12 +42,14 @@ public:
     BitmapManager *blockBitmap;
     BlockManager *blockManager;
     LogManager* logManager;
+#ifndef NOT_KERNEL
+    Lock* request_lock;
+#endif
 
 private:
     // Constructor is private, so it can't be called directly.
     explicit FileSystem(BlockManager *blockManager);
     static FileSystem* instance;
-
     bool readOnly = false; // default false
 
 

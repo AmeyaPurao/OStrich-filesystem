@@ -12,6 +12,7 @@
 #include "utility.h" // For std::forward
 #include "event.h"
 #include "function.h"
+#include "printf.h"
 #endif
 
 namespace fs {
@@ -104,19 +105,19 @@ namespace fs {
     };
 
     // Add directory entry
-    fs_resp_add_dir_t fs_req_add_dir(inode_index_t dir, inode_index_t file_to_add, const string& name);
+    fs_resp_add_dir_t fs_req_add_dir(inode_index_t dir, inode_index_t file_to_add, const string name);
     
     // Create file or directory
-    fs_resp_create_file_t fs_req_create_file(inode_index_t cwd, bool is_dir, const string& name, uint16_t permissions);
+    fs_resp_create_file_t fs_req_create_file(inode_index_t cwd, bool is_dir, const string name, uint16_t permissions);
     
     // Remove file or directory
-    fs_resp_remove_file_t fs_req_remove_file(inode_index_t inode_index, const string& name);
+    fs_resp_remove_file_t fs_req_remove_file(inode_index_t inode_index, const string name);
     
     // Read directory contents
     fs_resp_read_dir_t fs_req_read_dir(inode_index_t inode_index);
     
     // Open file by path
-    fs_resp_open_t fs_req_open(const string& path);
+    fs_resp_open_t fs_req_open(const string path);
     
     // Write to file
     fs_resp_write_t fs_req_write(inode_index_t inode_index, const char* buf, int offset, int n_bytes);
@@ -128,38 +129,37 @@ namespace fs {
     fs_resp_mount_snapshot_t fs_req_mount_snapshot(uint32_t checkpointID);
 
 #ifndef NOT_KERNEL
-    constexpr int NUM_FS_THREADS = 1;
-    inline Semaphore fs_semaphore(NUM_FS_THREADS); // thought it was a nice way to queue requests w/o tons of extra code.
-
-    // Unified request issuing function with request type as template parameter
-    template<fs_req_type_t ReqType, typename... Args>
-    void issue_fs_request(Function<void(fs_response_t)> callback, Args&&... args) {
-        fs_semaphore.down([=]() mutable {
-            fs_response_t response;
-            response.req_type = ReqType;
-            
-            if constexpr (ReqType == FS_REQ_ADD_DIR) {
-                response.data.add_dir = fs_req_add_dir(std::forward<Args>(args)...);
-            } else if constexpr (ReqType == FS_REQ_CREATE_FILE) {
-                response.data.create_file = fs_req_create_file(std::forward<Args>(args)...);
-            } else if constexpr (ReqType == FS_REQ_REMOVE_FILE) {
-                response.data.remove_file = fs_req_remove_file(std::forward<Args>(args)...);
-            } else if constexpr (ReqType == FS_REQ_READ_DIR) {
-                response.data.read_dir = fs_req_read_dir(std::forward<Args>(args)...);
-            } else if constexpr (ReqType == FS_REQ_READ) {
-                response.data.read = fs_req_read(std::forward<Args>(args)...);
-            } else if constexpr (ReqType == FS_REQ_OPEN) {
-                response.data.open = fs_req_open(std::forward<Args>(args)...);
-            } else if constexpr (ReqType == FS_REQ_WRITE) {
-                response.data.write = fs_req_write(std::forward<Args>(args)...);
-            } else if constexpr (ReqType == FS_REQ_MOUNT_SNAPSHOT) {
-                response.data.mount_snapshot = fs_req_mount_snapshot(std::forward<Args>(args)...);
-            }
-
-            fs_semaphore.up();    
-            create_event<fs_response_t>(callback, response);
-        });
-    }
+    // Add directory entry
+    void issue_fs_add_dir(inode_index_t dir, inode_index_t file_to_add, 
+                         const string name, Function<void(fs_response_t)> callback);
+    
+    // Create file or directory
+    void issue_fs_create_file(inode_index_t cwd, bool is_dir, const string name, 
+                         uint16_t permissions, Function<void(fs_response_t)> callback);
+    
+    // Remove file or directory
+    void issue_fs_remove_file(inode_index_t inode_index, const string name, 
+                         Function<void(fs_response_t)> callback);
+    
+    // Read directory contents
+    void issue_fs_read_dir(inode_index_t inode_index, 
+                         Function<void(fs_response_t)> callback);
+    
+    // Open file by path
+    void issue_fs_open(const string path, 
+                         Function<void(fs_response_t)> callback);
+    
+    // Write to file
+    void issue_fs_write(inode_index_t inode_index, const char* buf, 
+                         int offset, int n_bytes, Function<void(fs_response_t)> callback);
+    
+    // Read from file
+    void issue_fs_read(inode_index_t inode_index, char* buf, 
+                         int offset, int n_bytes, Function<void(fs_response_t)> callback);
+    
+    // Mount snapshot
+    void issue_fs_mount_snapshot(uint32_t checkpointID, 
+                         Function<void(fs_response_t)> callback);
 #endif
 
 } // namespace fs
