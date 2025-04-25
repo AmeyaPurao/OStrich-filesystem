@@ -196,6 +196,7 @@ fs_resp_read_t fs_req_read(inode_index_t inode_index, char* buf, int offset, int
 
 
     fs_resp_mount_snapshot_t fs_req_mount_snapshot(uint32_t checkpointID) {
+    FileSystem* fileSystem = FileSystem::getInstance();
         fs_resp_mount_snapshot_t resp;
         bool success = fileSystem->mountReadOnlySnapshot(checkpointID);
         if (success) {

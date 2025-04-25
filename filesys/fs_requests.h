@@ -9,7 +9,6 @@
 #include "cstdint"
 
 #ifndef NOT_KERNEL
-#include "utility.h" // For std::forward
 #include "event.h"
 #include "function.h"
 #endif
@@ -126,41 +125,6 @@ namespace fs {
     
     // Mount snapshot
     fs_resp_mount_snapshot_t fs_req_mount_snapshot(uint32_t checkpointID);
-
-#ifndef NOT_KERNEL
-    constexpr int NUM_FS_THREADS = 1;
-    inline Semaphore fs_semaphore(NUM_FS_THREADS); // thought it was a nice way to queue requests w/o tons of extra code.
-
-    // Unified request issuing function with request type as template parameter
-    template<fs_req_type_t ReqType, typename... Args>
-    void issue_fs_request(Function<void(fs_response_t)> callback, Args&&... args) {
-        fs_semaphore.down([=]() mutable {
-            fs_response_t response;
-            response.req_type = ReqType;
-            
-            if constexpr (ReqType == FS_REQ_ADD_DIR) {
-                response.data.add_dir = fs_req_add_dir(std::forward<Args>(args)...);
-            } else if constexpr (ReqType == FS_REQ_CREATE_FILE) {
-                response.data.create_file = fs_req_create_file(std::forward<Args>(args)...);
-            } else if constexpr (ReqType == FS_REQ_REMOVE_FILE) {
-                response.data.remove_file = fs_req_remove_file(std::forward<Args>(args)...);
-            } else if constexpr (ReqType == FS_REQ_READ_DIR) {
-                response.data.read_dir = fs_req_read_dir(std::forward<Args>(args)...);
-            } else if constexpr (ReqType == FS_REQ_READ) {
-                response.data.read = fs_req_read(std::forward<Args>(args)...);
-            } else if constexpr (ReqType == FS_REQ_OPEN) {
-                response.data.open = fs_req_open(std::forward<Args>(args)...);
-            } else if constexpr (ReqType == FS_REQ_WRITE) {
-                response.data.write = fs_req_write(std::forward<Args>(args)...);
-            } else if constexpr (ReqType == FS_REQ_MOUNT_SNAPSHOT) {
-                response.data.mount_snapshot = fs_req_mount_snapshot(std::forward<Args>(args)...);
-            }
-
-            fs_semaphore.up();    
-            create_event<fs_response_t>(callback, response);
-        });
-    }
-#endif
 
 } // namespace fs
 

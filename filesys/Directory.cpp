@@ -33,7 +33,7 @@ inode_index_t Directory::getDirectoryEntry(const char* fileName) const
         {
             if (strcmp(name, fileName) == 0)
             {
-                std::cout << "Returning inode number: " << inodeNumber << " for file: " << fileName << std::endl;
+                printf("Returning inode number: %d for file: %s\n", inodeNumber, fileName);
                 return inodeNumber;
             }
             offset++;
