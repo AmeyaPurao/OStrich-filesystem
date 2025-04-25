@@ -9,7 +9,6 @@
 #include "cstdint"
 
 #ifndef NOT_KERNEL
-#include "utility.h" // For std::forward
 #include "event.h"
 #include "function.h"
 #include "printf.h"
