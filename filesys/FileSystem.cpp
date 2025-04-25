@@ -8,8 +8,11 @@
 #include "cstdio"
 #include "cassert"
 
-
 #include "Directory.h"
+
+#ifndef NOT_KERNEL
+#include "atomic.h"
+#endif
 
 namespace fs {
 
@@ -52,6 +55,9 @@ FileSystem::FileSystem(BlockManager* blockManager): blockManager(blockManager), 
         printf("Existing filesystem detected\n");
     }
     loadFilesystem();
+#ifndef NOT_KERNEL
+    request_lock = new Lock();
+#endif
 }
 
 Directory* FileSystem::getRootDirectory() const
