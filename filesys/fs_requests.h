@@ -126,6 +126,40 @@ namespace fs {
     // Mount snapshot
     fs_resp_mount_snapshot_t fs_req_mount_snapshot(uint32_t checkpointID);
 
+#ifndef NOT_KERNEL
+    // Add directory entry
+    void issue_fs_add_dir(inode_index_t dir, inode_index_t file_to_add, 
+                         const string name, Function<void(fs_response_t)> callback);
+
+    // Create file or directory
+    void issue_fs_create_file(inode_index_t cwd, bool is_dir, const string name, 
+                         uint16_t permissions, Function<void(fs_response_t)> callback);
+
+    // Remove file or directory
+    void issue_fs_remove_file(inode_index_t inode_index, const string name, 
+                         Function<void(fs_response_t)> callback);
+
+    // Read directory contents
+    void issue_fs_read_dir(inode_index_t inode_index, 
+                         Function<void(fs_response_t)> callback);
+
+    // Open file by path
+    void issue_fs_open(const string path, 
+                         Function<void(fs_response_t)> callback);
+
+    // Write to file
+    void issue_fs_write(inode_index_t inode_index, const char* buf, 
+                         int offset, int n_bytes, Function<void(fs_response_t)> callback);
+
+    // Read from file
+    void issue_fs_read(inode_index_t inode_index, char* buf, 
+                         int offset, int n_bytes, Function<void(fs_response_t)> callback);
+
+    // Mount snapshot
+    void issue_fs_mount_snapshot(uint32_t checkpointID, 
+                         Function<void(fs_response_t)> callback);
+#endif
+
 } // namespace fs
 
 #endif // FS_REQUESTS_H

@@ -11,6 +11,10 @@
 
 #include "Directory.h"
 
+#ifndef NOT_KERNEL
+#include "atomic.h"
+#endif
+
 namespace fs {
 
 static const block_index_t LOG_AREA_SIZE = 64; // Reserve 64 blocks for the log area, need to adjust this later
@@ -53,6 +57,10 @@ FileSystem::FileSystem(BlockManager* blockManager): blockManager(blockManager), 
         printf("Existing filesystem detected\n");
     }
     loadFilesystem();
+
+    #ifndef NOT_KERNEL
+    request_lock = new Lock();
+    #endif
 }
 
 Directory* FileSystem::getRootDirectory() const

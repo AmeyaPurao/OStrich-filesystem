@@ -206,5 +206,112 @@ fs_resp_read_t fs_req_read(inode_index_t inode_index, char* buf, int offset, int
         }
         return resp;
     }
+
+#ifndef NOT_KERNEL
+    // Add directory entry
+    void issue_fs_add_dir(inode_index_t dir, inode_index_t file_to_add, 
+                         const string name, Function<void(fs_response_t)> callback) {
+        Lock* lock = FileSystem::getInstance()->request_lock;
+        lock->lock([=]() mutable {
+            fs_response_t response;
+            response.req_type = FS_REQ_ADD_DIR;
+            response.data.add_dir = fs_req_add_dir(dir, file_to_add, name);
+
+            lock->unlock();
+            create_event<fs_response_t>(callback, response);
+        });
+    }
+
+    void issue_fs_create_file(inode_index_t cwd, bool is_dir, const string name, 
+                         uint16_t permissions, Function<void(fs_response_t)> callback) {
+        Lock* lock = FileSystem::getInstance()->request_lock;
+        lock->lock([=]() mutable {
+            fs_response_t response;
+            response.req_type = FS_REQ_CREATE_FILE;
+            response.data.create_file = fs_req_create_file(cwd, is_dir, name, permissions);
+
+            lock->unlock();
+            create_event<fs_response_t>(callback, response);
+        });
+    }
+
+    void issue_fs_remove_file(inode_index_t inode_index, const string name, 
+                         Function<void(fs_response_t)> callback) {
+        Lock* lock = FileSystem::getInstance()->request_lock;
+        lock->lock([=]() mutable {
+            fs_response_t response;
+            response.req_type = FS_REQ_REMOVE_FILE;
+            response.data.remove_file = fs_req_remove_file(inode_index, name);
+
+            lock->unlock();
+            create_event<fs_response_t>(callback, response);
+        });
+    }
+
+    void issue_fs_read_dir(inode_index_t inode_index, 
+                         Function<void(fs_response_t)> callback) {
+        Lock* lock = FileSystem::getInstance()->request_lock;
+        lock->lock([=]() mutable {
+            fs_response_t response;
+            response.req_type = FS_REQ_READ_DIR;
+            response.data.read_dir = fs_req_read_dir(inode_index);
+
+            lock->unlock();
+            create_event<fs_response_t>(callback, response);
+        });
+    }
+
+    void issue_fs_open(const string path, 
+                         Function<void(fs_response_t)> callback) {
+        Lock* lock = FileSystem::getInstance()->request_lock;
+        lock->lock([=]() mutable {
+            fs_response_t response;
+            response.req_type = FS_REQ_OPEN;
+            response.data.open = fs_req_open(path);
+
+            lock->unlock();
+            create_event<fs_response_t>(callback, response);
+        });
+    }
+
+    void issue_fs_write(inode_index_t inode_index, const char* buf, 
+                         int offset, int n_bytes, Function<void(fs_response_t)> callback) {
+        Lock* lock = FileSystem::getInstance()->request_lock;
+        lock->lock([=]() mutable {
+            fs_response_t response;
+            response.req_type = FS_REQ_WRITE;
+            response.data.write = fs_req_write(inode_index, buf, offset, n_bytes);
+
+            lock->unlock();
+            create_event<fs_response_t>(callback, response);
+        });
+    }
+
+    void issue_fs_read(inode_index_t inode_index, char* buf, 
+                         int offset, int n_bytes, Function<void(fs_response_t)> callback) {
+        Lock* lock = FileSystem::getInstance()->request_lock;
+        lock->lock([=]() mutable {
+            fs_response_t response;
+            response.req_type = FS_REQ_READ;
+            response.data.read = fs_req_read(inode_index, buf, offset, n_bytes);
+
+            lock->unlock();
+            create_event<fs_response_t>(callback, response);
+        });
+    }
+
+    void issue_fs_mount_snapshot(uint32_t checkpointID, 
+                         Function<void(fs_response_t)> callback) {
+        Lock* lock = FileSystem::getInstance()->request_lock;
+        lock->lock([=]() mutable {
+            fs_response_t response;
+            response.req_type = FS_REQ_MOUNT_SNAPSHOT;
+            response.data.mount_snapshot = fs_req_mount_snapshot(checkpointID);
+
+            lock->unlock();
+            create_event<fs_response_t>(callback, response);
+        });
+    }
+#endif
 }
 
