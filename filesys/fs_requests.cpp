@@ -15,124 +15,108 @@
 #endif
 
 namespace fs {
+#ifdef NOT_KERNEL
     void init(BlockManager* block_manager) {
         fileSystem = FileSystem::getInstance(block_manager);
         blockManager = block_manager;
     }
+#endif
 
-    fs_response_t fs_req_add_dir(fs_req_t* req) {
-        fs_response_t resp;
+    fs_resp_add_dir_t fs_req_add_dir(inode_index_t dir, inode_index_t file_to_add, const string& name) {
+        FileSystem* fileSystem = FileSystem::getInstance();
+        fs_resp_add_dir_t resp;
 
         if (fileSystem->isReadOnly()) {
-            resp.req_type = FS_REQ_ADD_DIR;
-            resp.data.add_dir.status = FS_RESP_ERROR_PERMISSION;
+            resp.status = FS_RESP_ERROR_PERMISSION;
             return resp;
         }
 
-        inode_index_t dir_inode_num =  req->data.add_dir.dir;
-        Directory parent_dir = Directory(dir_inode_num, fileSystem->inodeTable, fileSystem->inodeBitmap,
-                fileSystem->blockBitmap, fileSystem->blockManager, fileSystem->logManager);
-        bool success = parent_dir.addDirectoryEntry(req->data.add_dir.name, req->data.add_dir.file_to_add);
+        Directory parent(dir, fileSystem->inodeTable, fileSystem->inodeBitmap,
+                        fileSystem->blockBitmap, fileSystem->blockManager, fileSystem->logManager);
 
-        resp.req_type = FS_REQ_ADD_DIR;
-        if(success) {
-            resp.data.add_dir.status = FS_RESP_SUCCESS;
-        } else {
-            resp.data.add_dir.status = FS_RESP_ERROR_EXISTS;
-        }
+        bool ok = parent.addDirectoryEntry(name.c_str(), file_to_add);
+        resp.status = ok ? FS_RESP_SUCCESS : FS_RESP_ERROR_EXISTS;
         return resp;
     }
 
-    fs_response_t fs_req_create_file(fs_req_t *req) {
-        fs_response_t resp;
+fs_resp_create_file_t fs_req_create_file(inode_index_t cwd, bool is_dir, const string& name, uint16_t permissions) {
+    fs_resp_create_file_t resp;
+    FileSystem* fileSystem = FileSystem::getInstance();
 
-        if (fileSystem->isReadOnly()) {
-            resp.req_type = FS_REQ_CREATE_FILE;
-            resp.data.create_file.status = FS_RESP_ERROR_PERMISSION;
-            resp.data.create_file.inode_index = INODE_NULL_VALUE;
-            return resp;
-        }
-
-        resp.data.create_file.inode_index = INODE_NULL_VALUE;
-        inode_index_t dir_inode_num = req->data.create.cwd;
-        Directory parent_dir = Directory(dir_inode_num, fileSystem->inodeTable, fileSystem->inodeBitmap,
-                fileSystem->blockBitmap, fileSystem->blockManager, fileSystem->logManager);
-        //TODO need to modify createFile()/createDirectory to take permissions and stuff
-
-        void* newFile = nullptr;
-        if (req->data.create.is_dir) {
-            newFile = parent_dir.createDirectory(req->data.create.name);
-        }
-        else {
-            newFile = parent_dir.createFile(req->data.create.name);
-        }
-
-        if (newFile == nullptr) {
-            resp.data.create_file.status = FS_RESP_ERROR_EXISTS;
-        } else {
-            resp.data.create_file.status = FS_RESP_SUCCESS;
-            if (req->data.create.is_dir) {
-                resp.data.create_file.inode_index = (static_cast<Directory*>(newFile))->getInodeNumber();
-            }
-            else {
-                resp.data.create_file.inode_index = (static_cast<File*>(newFile))->getInodeNumber();
-            }
-        }
-        resp.req_type = FS_REQ_CREATE_FILE;
+    if (fileSystem->isReadOnly()) {
+        resp.status = FS_RESP_ERROR_PERMISSION;
+        resp.inode_index = INODE_NULL_VALUE;
         return resp;
     }
 
-    fs_response_t fs_req_remove_file(fs_req_t *req) {
-        fs_response_t resp;
+    resp.inode_index = INODE_NULL_VALUE;
+    Directory parent(cwd, fileSystem->inodeTable, fileSystem->inodeBitmap,
+                    fileSystem->blockBitmap, fileSystem->blockManager, fileSystem->logManager);
 
-        if (fileSystem->isReadOnly()) {
-            resp.req_type = FS_REQ_REMOVE_FILE;
-            resp.data.remove_file.status = FS_RESP_ERROR_PERMISSION;
-            return resp;
-        }
+    void* newEnt = nullptr;
+    if (is_dir) {
+        newEnt = parent.createDirectory(name.c_str());
+    } else {
+        newEnt = parent.createFile(name.c_str());
+    }
 
-        inode_index_t dir_inode_num = req->data.remove.inode_index;
-        Directory parent_dir = Directory(dir_inode_num, fileSystem->inodeTable, fileSystem->inodeBitmap,
-                fileSystem->blockBitmap, fileSystem->blockManager, fileSystem->logManager);
-        bool success = parent_dir.removeDirectoryEntry(req->data.remove.name);
-        resp.req_type = FS_REQ_REMOVE_FILE;
-        if (success) {
-            resp.data.remove_file.status = FS_RESP_SUCCESS;
-        } else {
-            resp.data.remove_file.status = FS_RESP_ERROR_NOT_FOUND;
-        }
+    if (!newEnt) {
+        resp.status = FS_RESP_ERROR_EXISTS;
+    } else {
+        resp.status = FS_RESP_SUCCESS;
+        resp.inode_index = is_dir ? static_cast<Directory*>(newEnt)->getInodeNumber()
+                                : static_cast<File*>(newEnt)->getInodeNumber();
+    }
+    return resp;
+}
+
+fs_resp_remove_file_t fs_req_remove_file(inode_index_t inode_index, const string& name) {
+    fs_resp_remove_file_t resp;
+    FileSystem* fileSystem = FileSystem::getInstance();
+    if (fileSystem->isReadOnly()) {
+        resp.status = FS_RESP_ERROR_PERMISSION;
         return resp;
     }
 
-    fs_response_t fs_req_read_dir(fs_req_t *req){
-        fs_response_t resp{};
-        resp.data.read_dir.entry_count = 0;
-        inode_index_t dir_inode_num = req->data.read_dir.inode_index;
-        Directory parent_dir = Directory(dir_inode_num, fileSystem->inodeTable, fileSystem->inodeBitmap,
-                fileSystem->blockBitmap, fileSystem->blockManager, fileSystem->logManager);
-        std::vector<char*> entries = parent_dir.listDirectoryEntries();
-        resp.req_type = FS_REQ_READ_DIR;
-        resp.data.read_dir.status = FS_RESP_SUCCESS;
-        for(auto entry : entries) {
-            strcpy(resp.data.read_dir.entries[resp.data.read_dir.entry_count].name, entry);
-            resp.data.read_dir.entries[resp.data.read_dir.entry_count].name[MAX_FILE_NAME_LENGTH] = '\0';
-            resp.data.read_dir.entries[resp.data.read_dir.entry_count].inodeNumber = parent_dir.getDirectoryEntry(entry);
-            resp.data.read_dir.entry_count++;
-        }
-        return resp;
+    Directory parent(inode_index, fileSystem->inodeTable, fileSystem->inodeBitmap,
+                    fileSystem->blockBitmap, fileSystem->blockManager, fileSystem->logManager);
+
+    bool ok = parent.removeDirectoryEntry(name.c_str());
+    resp.status = ok ? FS_RESP_SUCCESS : FS_RESP_ERROR_NOT_FOUND;
+    return resp;
+}
+fs_resp_read_dir_t fs_req_read_dir(inode_index_t inode_index) {
+    fs_resp_read_dir_t resp;
+    FileSystem* fileSystem = FileSystem::getInstance();
+    resp.entry_count = 0;
+
+    Directory parent(inode_index, fileSystem->inodeTable, fileSystem->inodeBitmap,
+                    fileSystem->blockBitmap, fileSystem->blockManager, fileSystem->logManager);
+
+    auto entries = parent.listDirectoryEntries();
+    resp.status = FS_RESP_SUCCESS;
+
+    for (auto namePtr : entries) {
+        strncpy(resp.entries[resp.entry_count].name, namePtr, MAX_FILE_NAME_LENGTH);
+        resp.entries[resp.entry_count].name[MAX_FILE_NAME_LENGTH] = '\0';
+        resp.entries[resp.entry_count].inodeNumber = parent.getDirectoryEntry(namePtr);
+        resp.entry_count++;
     }
 
-    fs_response_t fs_req_open(fs_req_t *req){
-        fs_response_t resp;
-        resp.req_type = FS_REQ_OPEN;
-        resp.data.open.status = FS_RESP_ERROR_NOT_FOUND;
+    return resp;
+}
+    fs_resp_open_t fs_req_open(const string& path) {
+        fs_resp_open_t resp;
+        FileSystem* fileSystem = FileSystem::getInstance();
+        resp.status = FS_RESP_ERROR_NOT_FOUND;
+        resp.inode_index = INODE_NULL_VALUE;
         std::vector<string> path_parts;
 
         // Parse path (already minified)
-        string path(req->data.open.path);
         string cur_part;
         for (int i = 1; i < path.length(); i++) {
             if (path[i] == '/') {
+                printf("Adding part %s\n", cur_part.c_str());
                 path_parts.push_back(cur_part);
                 cur_part = "";
             } else {
@@ -163,111 +147,63 @@ namespace fs {
             newFile = curDir->getFile(path_parts.back().c_str());
         }
         if (newFile != nullptr) {
-            resp.data.open.status = FS_RESP_SUCCESS;
-            resp.data.open.inode_index = (static_cast<File*>(newFile))->getInodeNumber();
+          resp.status = FS_RESP_SUCCESS;
+        resp.inode_index = static_cast<File*>(newFile)->getInodeNumber();
             // todo need to implement get permissions
             // resp.data.open.permissions = (static_cast<File*>(newFile))->getPermissions();
         }
         return resp;
     }
 
-    fs_response_t fs_req_write(fs_req_t *req){
-        fs_response_t resp;
+fs_resp_write_t fs_req_write(inode_index_t inode_index, const char* buf, int offset, int n_bytes) {
+    fs_resp_write_t resp;
+    FileSystem* fileSystem = FileSystem::getInstance();
 
-        if (fileSystem->isReadOnly()) {
-            resp.req_type = FS_REQ_WRITE;
-            resp.data.write.status = FS_RESP_ERROR_PERMISSION;
-            resp.data.write.bytes_written = 0;
-            return resp;
-        }
+    if (fileSystem->isReadOnly()) {
+        resp.status = FS_RESP_ERROR_PERMISSION;
+        resp.bytes_written = 0;
+        return resp;
+    }
 
-        inode_index_t inode_num = req->data.write.inode_index;
-        File file = File(inode_num, fileSystem->inodeTable, fileSystem->inodeBitmap,
+        File file(inode_index, fileSystem->inodeTable, fileSystem->inodeBitmap,
                 fileSystem->blockBitmap, fileSystem->blockManager, fileSystem->logManager);
-        bool success = file.write_at(req->data.write.offset, reinterpret_cast<uint8_t*>(req->data.write.buf), req->data.write.n_bytes);
+        bool success = file.write_at(offset, reinterpret_cast<const uint8_t*>(buf), n_bytes);
         if (success) {
-            resp.data.write.status = FS_RESP_SUCCESS;
-            resp.data.write.bytes_written = req->data.write.n_bytes;
+            resp.status = FS_RESP_SUCCESS;
+            resp.bytes_written = n_bytes;
         } else {
-            resp.data.write.status = FS_RESP_ERROR_INVALID;
-            resp.data.write.bytes_written = 0;
+            resp.status = FS_RESP_ERROR_INVALID;
+            resp.bytes_written = 0;
         }
-        resp.req_type = FS_REQ_WRITE;
         return resp;
     }
 
-    fs_response_t fs_req_read(fs_req_t *req){
-        fs_response_t resp;
-        inode_index_t inode_num = req->data.read.inode_index;
-        File file = File(inode_num, fileSystem->inodeTable, fileSystem->inodeBitmap,
-                fileSystem->blockBitmap, fileSystem->blockManager, fileSystem->logManager);
-        bool success = file.read_at(req->data.read.offset, reinterpret_cast<uint8_t*>(req->data.read.buf), req->data.read.n_bytes);
+fs_resp_read_t fs_req_read(inode_index_t inode_index, char* buf, int offset, int n_bytes) {
+    fs_resp_read_t resp;
+    FileSystem* fileSystem = FileSystem::getInstance();
+    File file(inode_index, fileSystem->inodeTable, fileSystem->inodeBitmap,
+            fileSystem->blockBitmap, fileSystem->blockManager, fileSystem->logManager);
+    bool success = file.read_at(offset, reinterpret_cast<uint8_t*>(buf), n_bytes);
+    if (success) {
+        resp.status = FS_RESP_SUCCESS;
+        resp.bytes_read = n_bytes;
+    } else {
+        resp.status = FS_RESP_ERROR_INVALID;
+        resp.bytes_read = 0;
+    }
+    return resp;
+    }
+
+
+    fs_resp_mount_snapshot_t fs_req_mount_snapshot(uint32_t checkpointID) {
+        fs_resp_mount_snapshot_t resp;
+        bool success = fileSystem->mountReadOnlySnapshot(checkpointID);
         if (success) {
-            resp.data.read.status = FS_RESP_SUCCESS;
-            resp.data.read.bytes_read = req->data.read.n_bytes;
+            resp.status = FS_RESP_SUCCESS;
         } else {
-            resp.data.read.status = FS_RESP_ERROR_INVALID;
-            resp.data.read.bytes_read = 0;
-        }
-        resp.req_type = FS_REQ_READ;
-        return resp;
-    }
-
-    fs_response_t fs_req_mount_snapshot(fs_req_t *req) {
-        fs_response_t resp;
-        resp.req_type = FS_REQ_MOUNT_SNAPSHOT;
-        fileSystem = FileSystem::getInstance(blockManager);
-        if (req->data.mount_snapshot.checkpointID == 0) {
-            resp.data.mount_snapshot.status = FS_RESP_SUCCESS;
-        }
-        else {
-            FileSystem* snapshot = fileSystem->mountReadOnlySnapshot(req->data.mount_snapshot.checkpointID);
-            if (snapshot) {
-                fileSystem = snapshot;
-                resp.data.mount_snapshot.status = FS_RESP_SUCCESS;
-            } else {
-                resp.data.mount_snapshot.status = FS_RESP_ERROR_NOT_FOUND;
-            }
+            resp.status = FS_RESP_ERROR_INVALID;
         }
         return resp;
     }
-
-    fs_response_t fs_req_dispatch(fs_req_type_t req_type, fs_req_t req) {
-        switch (req_type) {
-            case FS_REQ_ADD_DIR:
-                return fs_req_add_dir(&req);
-            case FS_REQ_CREATE_FILE:
-                return fs_req_create_file(&req);
-            case FS_REQ_REMOVE_FILE:
-                return fs_req_remove_file(&req);
-            case FS_REQ_READ_DIR:
-                return fs_req_read_dir(&req);
-            case FS_REQ_OPEN:
-                return fs_req_open(&req);
-            case FS_REQ_WRITE:
-                return fs_req_write(&req);
-            case FS_REQ_READ:
-                return fs_req_read(&req);
-            case FS_REQ_MOUNT_SNAPSHOT:
-                return fs_req_mount_snapshot(&req);
-            default:
-                printf("Invalid request type: %d\n", req_type);
-        }
-        assert(0);
-        return fs_response_t();
-    }
-
-#ifndef NOT_KERNEL
-    constexpr int NUM_FS_THREADS = 1;
-    Semaphore fs_semaphore(NUM_FS_THREADS); // thought it was a nice way to queue requests w/o tons of extra code.
-
-    void issue_fs_request(fs_req_type_t req_type, fs_req_t& req, Function<void(fs_response_t)> callback) {
-        fs_semaphore.down([=]() {
-            fs_response_t resp = fs_req_dispatch(req_type, req);
-            fs_semaphore.up();
-            create_event<fs_response_t>(callback, resp);
-        });
-    }
-#endif
 }
 

@@ -28,7 +28,7 @@ public:
 
     // Mount a read-only snapshot based on a checkpoint ID.
     // Returns a new FileSystem instance representing the snapshot, or nullptr on failure.
-    FileSystem* mountReadOnlySnapshot(uint32_t checkpointID);
+    bool mountReadOnlySnapshot(uint32_t checkpointID);
 
     bool isReadOnly() const { return readOnly; }
 
@@ -43,6 +43,7 @@ private:
     // Constructor is private, so it can't be called directly.
     explicit FileSystem(BlockManager *blockManager);
     static FileSystem* instance;
+    static InodeTable* liveTable;
 
     bool readOnly = false; // default false
 
