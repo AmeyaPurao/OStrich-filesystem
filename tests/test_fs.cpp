@@ -98,6 +98,24 @@ int main() {
         assert(got == "hello");
     }
 
+    //2.5 WRITE large amounts of data (20 KB)
+    {
+        cout << "Writing large file "<< endl;
+        const int bufferSize = 20 * 4096;
+        char msg[bufferSize];
+        std::memset(msg, 'a', bufferSize);  // populate with 'a's
+        msg[bufferSize - 1] = '\0';  // null terminate
+
+        auto wr = fs_req_write(file2inode, msg, 0, bufferSize);
+        assert(wr.status == FS_RESP_SUCCESS);
+
+        // assert read returns the same data
+        char buffer[bufferSize] = {};
+        auto rd = fs_req_read(file2inode, buffer, 0, bufferSize);
+        assert(rd.status == FS_RESP_SUCCESS);
+        assert(buffer[bufferSize - 2] == 'a');
+    }
+
     // 3) DELETE file1
     {
         auto rr = fs_req_remove_file(0, "file1");
@@ -135,11 +153,24 @@ int main() {
          assert(liveFS->createCheckpoint());
 
          // overwrite
+        const int bufferSize = 20 * 4096;
+        char msg[bufferSize];
          {
-             const char *m2 = "second";
-             int len = std::strlen(m2) + 1;
-             auto wr = fs_req_write(file2inode, m2, 0, len);
+             std::memset(msg, 'e', bufferSize);  // populate with 'e's
+             msg[bufferSize - 1] = '\0';  // null terminate
+
+             // const char *m2 = "second";
+             // int len = std::strlen(m2) + 1;
+             auto wr = fs_req_write(file2inode, msg, 0, bufferSize);
              assert(wr.status == FS_RESP_SUCCESS);
+
+             char buffer[bufferSize] = {};
+             auto rd = fs_req_read(file2inode, buffer, 0, bufferSize);
+             assert(rd.status == FS_RESP_SUCCESS);
+             assert(buffer[bufferSize - 2] == 'e');
+             assert(buffer[0] == 'e');
+             assert(buffer[bufferSize/2] == 'e');
+
          }
          // checkpoint (3)
          assert(liveFS->createCheckpoint());
@@ -166,10 +197,27 @@ int main() {
          };
 
          validate(2, true, "first");
-         validate(3, true, "second");
+         //validate(3, true, msg);
          validate(4, false, nullptr);
          validate(0, false, nullptr);
+
+        // manually validate checkpoint 3
+         {
+             cout << "validating large file checkpoint "<< endl;
+             auto resp = fs_req_mount_snapshot(3);
+             assert(resp.status == FS_RESP_SUCCESS);
+             auto r = fs_req_open("/file2");
+             assert(r.status == FS_RESP_SUCCESS);
+             file2inode = r.inode_index;
+             char buffer[bufferSize] = {};
+             auto rd = fs_req_read(file2inode, buffer, 0, bufferSize);
+             assert(buffer[bufferSize - 2] == 'e');
+             assert(buffer[0] == 'e');
+             assert(buffer[bufferSize/2] == 'e');
+         }
      }
+
+
 
     printf("reset live fs test\n");
     auto resp = fs_req_mount_snapshot(0);
