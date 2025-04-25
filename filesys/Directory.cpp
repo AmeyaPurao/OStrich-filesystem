@@ -33,7 +33,7 @@ inode_index_t Directory::getDirectoryEntry(const char* fileName) const
         {
             if (strcmp(name, fileName) == 0)
             {
-                // std::cout << "Returning inode number: " << inodeNumber << " for file: " << fileName << std::endl;
+                std::cout << "Returning inode number: " << inodeNumber << " for file: " << fileName << std::endl;
                 return inodeNumber;
             }
             offset++;
@@ -194,9 +194,9 @@ bool Directory::removeDirectoryEntry(const char* fileName) {
 
                 // Calculate the global index of the found entry.
                 uint32_t entryGlobalIndex = i * DIRECTORY_ENTRIES_PER_BLOCK + j;
-                cout << "Entry global index: " << entryGlobalIndex << endl;
-                cout << "Inode numFiles: " << inode.numFiles << endl;
-                cout << "Inode blockCount: " << inode.blockCount << endl;
+                // cout << "Entry global index: " << entryGlobalIndex << endl;
+                // cout << "Inode numFiles: " << inode.numFiles << endl;
+                // cout << "Inode blockCount: " << inode.blockCount << endl;
 
                 if (entryGlobalIndex >= inode.numFiles) {
                     printf("Entry global index out of bounds\n");
