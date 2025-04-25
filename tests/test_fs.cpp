@@ -52,8 +52,8 @@ static std::string readFile(inode_index_t inode, int nBytes) {
     inode_index_t ino = opro.inode_index;
 
     // then read
-    char buffer[256] = {};
-    auto rdr = fs::fs_req_read(inode, buffer, 0, nBytes);
+    char buffer[nBytes] = {};
+    auto rdr = fs::fs_req_read(ino, buffer, 0, nBytes);
     assert(rdr.status == fs::FS_RESP_SUCCESS);
     return std::string(buffer, nBytes - 1);
 }
@@ -143,19 +143,9 @@ int main() {
 
 
          // write first
-         {
-             const char *m1 = "first";
-             int len = std::strlen(m1) + 1;
-             auto wr = fs_req_write(file2inode, m1, 0, len);
-             assert(wr.status == FS_RESP_SUCCESS);
-         }
-         // checkpoint (2)
-         assert(liveFS->createCheckpoint());
-
-         // overwrite
         const int bufferSize = 20 * 4096;
         char msg[bufferSize];
-         {
+        {
              std::memset(msg, 'e', bufferSize);  // populate with 'e's
              msg[bufferSize - 1] = '\0';  // null terminate
 
@@ -171,7 +161,19 @@ int main() {
              assert(buffer[0] == 'e');
              assert(buffer[bufferSize/2] == 'e');
 
-         }
+        }
+
+         // checkpoint (2)
+         assert(liveFS->createCheckpoint());
+
+         // overwrite
+        {
+             const char *m1 = "first";
+             int len = std::strlen(m1) + 1;
+             auto wr = fs_req_write(file2inode, m1, 0, len);
+             assert(wr.status == FS_RESP_SUCCESS);
+        }
+
          // checkpoint (3)
          assert(liveFS->createCheckpoint());
 
@@ -196,21 +198,21 @@ int main() {
              }
          };
 
-         validate(2, true, "first");
-         //validate(3, true, msg);
+         validate(3, true, "first");
          validate(4, false, nullptr);
          validate(0, false, nullptr);
 
-        // manually validate checkpoint 3
+        // manually validate checkpoint 2
          {
              cout << "validating large file checkpoint "<< endl;
-             auto resp = fs_req_mount_snapshot(3);
+             auto resp = fs_req_mount_snapshot(2);
              assert(resp.status == FS_RESP_SUCCESS);
              auto r = fs_req_open("/file2");
              assert(r.status == FS_RESP_SUCCESS);
              file2inode = r.inode_index;
              char buffer[bufferSize] = {};
              auto rd = fs_req_read(file2inode, buffer, 0, bufferSize);
+             assert(rd.status == FS_RESP_SUCCESS);
              assert(buffer[bufferSize - 2] == 'e');
              assert(buffer[0] == 'e');
              assert(buffer[bufferSize/2] == 'e');
