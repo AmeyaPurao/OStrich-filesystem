@@ -24,7 +24,7 @@ namespace fs {
 
     fs_resp_add_dir_t fs_req_add_dir(inode_index_t dir, inode_index_t file_to_add, const string& name) {
         FileSystem* fileSystem = FileSystem::getInstance();
-        fs_resp_add_dir_t resp;
+        fs_resp_add_dir_t resp{};
 
         if (fileSystem->isReadOnly()) {
             resp.status = FS_RESP_ERROR_PERMISSION;
@@ -40,7 +40,7 @@ namespace fs {
     }
 
 fs_resp_create_file_t fs_req_create_file(inode_index_t cwd, bool is_dir, const string& name, uint16_t permissions) {
-    fs_resp_create_file_t resp;
+    fs_resp_create_file_t resp{};
     FileSystem* fileSystem = FileSystem::getInstance();
 
     if (fileSystem->isReadOnly()) {
@@ -71,7 +71,7 @@ fs_resp_create_file_t fs_req_create_file(inode_index_t cwd, bool is_dir, const s
 }
 
 fs_resp_remove_file_t fs_req_remove_file(inode_index_t inode_index, const string& name) {
-    fs_resp_remove_file_t resp;
+    fs_resp_remove_file_t resp{};
     FileSystem* fileSystem = FileSystem::getInstance();
     if (fileSystem->isReadOnly()) {
         resp.status = FS_RESP_ERROR_PERMISSION;
@@ -86,7 +86,7 @@ fs_resp_remove_file_t fs_req_remove_file(inode_index_t inode_index, const string
     return resp;
 }
 fs_resp_read_dir_t fs_req_read_dir(inode_index_t inode_index) {
-    fs_resp_read_dir_t resp;
+    fs_resp_read_dir_t resp{};
     FileSystem* fileSystem = FileSystem::getInstance();
     resp.entry_count = 0;
 
@@ -106,7 +106,7 @@ fs_resp_read_dir_t fs_req_read_dir(inode_index_t inode_index) {
     return resp;
 }
     fs_resp_open_t fs_req_open(const string& path) {
-        fs_resp_open_t resp;
+        fs_resp_open_t resp{};
         FileSystem* fileSystem = FileSystem::getInstance();
         resp.status = FS_RESP_ERROR_NOT_FOUND;
         resp.inode_index = INODE_NULL_VALUE;
@@ -156,7 +156,7 @@ fs_resp_read_dir_t fs_req_read_dir(inode_index_t inode_index) {
     }
 
 fs_resp_write_t fs_req_write(inode_index_t inode_index, const char* buf, int offset, int n_bytes) {
-    fs_resp_write_t resp;
+    fs_resp_write_t resp{};
     FileSystem* fileSystem = FileSystem::getInstance();
 
     if (fileSystem->isReadOnly()) {
@@ -179,7 +179,7 @@ fs_resp_write_t fs_req_write(inode_index_t inode_index, const char* buf, int off
     }
 
 fs_resp_read_t fs_req_read(inode_index_t inode_index, char* buf, int offset, int n_bytes) {
-    fs_resp_read_t resp;
+    fs_resp_read_t resp{};
     FileSystem* fileSystem = FileSystem::getInstance();
     File file(inode_index, fileSystem->inodeTable, fileSystem->inodeBitmap,
             fileSystem->blockBitmap, fileSystem->blockManager, fileSystem->logManager);
@@ -197,7 +197,7 @@ fs_resp_read_t fs_req_read(inode_index_t inode_index, char* buf, int offset, int
 
     fs_resp_mount_snapshot_t fs_req_mount_snapshot(uint32_t checkpointID) {
     FileSystem* fileSystem = FileSystem::getInstance();
-        fs_resp_mount_snapshot_t resp;
+        fs_resp_mount_snapshot_t resp{};
         bool success = fileSystem->mountReadOnlySnapshot(checkpointID);
         if (success) {
             resp.status = FS_RESP_SUCCESS;
@@ -206,5 +206,39 @@ fs_resp_read_t fs_req_read(inode_index_t inode_index, char* buf, int offset, int
         }
         return resp;
     }
+
+    fs_resp_create_checkpoint_t fs_req_create_checkpoint() {
+        FileSystem* fileSystem = FileSystem::getInstance();
+        fs_resp_create_checkpoint_t resp{};
+        if (fileSystem->isReadOnly()) {
+            resp.status = FS_RESP_ERROR_PERMISSION;
+            return resp;
+        }
+        bool success = fileSystem->createCheckpoint();
+        if (success) {
+            resp.status = FS_RESP_SUCCESS;
+        } else {
+            resp.status = FS_RESP_ERROR_INVALID;
+        }
+        return resp;
+    }
+
+    fs_resp_list_checkpoints_t fs_req_list_checkpoints() {
+        FileSystem* fileSystem = FileSystem::getInstance();
+        fs_resp_list_checkpoints_t resp{};
+        BlockManager* bm = fileSystem->blockManager;
+        block_t block{};
+        if (!bm->readBlock(0, block.data)) {
+            resp.status = FS_RESP_ERROR_INVALID;
+            return resp;
+        }
+        resp.num_checkpoints = block.superBlock.latestCheckpointIndex;
+        for (int i = 0; i < resp.num_checkpoints; i++) {
+            resp.checkpoint_ids[i] = i;
+        }
+        resp.status = FS_RESP_SUCCESS;
+        return resp;
+    }
+
 }
 

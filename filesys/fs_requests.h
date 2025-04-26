@@ -84,6 +84,16 @@ namespace fs {
         fs_resp_status_t status;
     };
 
+    struct fs_resp_create_checkpoint_t {
+        fs_resp_status_t status;
+    };
+
+    struct fs_resp_list_checkpoints_t {
+        fs_resp_status_t status;
+        uint32_t num_checkpoints;
+        block_index_t checkpoint_ids[128]; // max checkpoints is 128
+    };
+
     // Union of all response types
     union fs_response_data_t {
         fs_resp_add_dir_t add_dir;
@@ -125,6 +135,13 @@ namespace fs {
     
     // Mount snapshot
     fs_resp_mount_snapshot_t fs_req_mount_snapshot(uint32_t checkpointID);
+
+    // Create checkpoint
+    fs_resp_create_checkpoint_t fs_req_create_checkpoint();
+
+    // List all checkpoints
+    fs_resp_list_checkpoints_t fs_req_list_checkpoints();
+
 
 } // namespace fs
 

@@ -164,7 +164,8 @@ int main() {
         }
 
          // checkpoint (2)
-         assert(liveFS->createCheckpoint());
+         auto cp = fs_req_create_checkpoint();
+         assert(cp.status == FS_RESP_SUCCESS);
 
          // overwrite
         {
@@ -175,14 +176,16 @@ int main() {
         }
 
          // checkpoint (3)
-         assert(liveFS->createCheckpoint());
+         cp = fs_req_create_checkpoint();
+         assert(cp.status == FS_RESP_SUCCESS);
 
          // delete
          auto rr = fs_req_remove_file(0, "file2");
          assert(rr.status == FS_RESP_SUCCESS);
 
          // checkpoint (4)
-         assert(liveFS->createCheckpoint());
+         cp = fs_req_create_checkpoint();
+         assert(cp.status == FS_RESP_SUCCESS);
 
          // helper to test
          auto validate = [&](int cp, bool exists, const char *expected) {
@@ -224,6 +227,17 @@ int main() {
     printf("reset live fs test\n");
     auto resp = fs_req_mount_snapshot(0);
     assert(resp.status == FS_RESP_SUCCESS);
+
+    // list all current checkpoints
+    {
+        auto r = fs_req_list_checkpoints();
+        assert(r.status == FS_RESP_SUCCESS);
+        printf("Checkpoints: ");
+        for (int i = 0; i < r.num_checkpoints; i++) {
+            printf("%u ", r.checkpoint_ids[i]);
+        }
+        printf("\n");
+    }
 
     // 5) Recreate file2
     {
